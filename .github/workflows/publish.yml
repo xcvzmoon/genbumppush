@@ -47,4 +47,5 @@ jobs:
           vp pack
 
       - name: Publish with provenance
-        run: npm publish --access public --provenance
+        working-directory: ${{ runner.temp }}
+        run: npm publish "$GITHUB_WORKSPACE" --access public --provenance
