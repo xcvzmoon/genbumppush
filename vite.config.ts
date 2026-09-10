@@ -4,7 +4,13 @@ export default defineConfig({
   staged: {
     '*': 'vp check --fix',
   },
+  test: {
+    include: ['tests/**'],
+    passWithNoTests: true,
+    testTimeout: 15_000,
+  },
   pack: {
+    entry: ['src/index.ts', 'src/bin.ts'],
     dts: true,
     exports: true,
   },
