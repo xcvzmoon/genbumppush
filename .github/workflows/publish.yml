@@ -8,7 +8,7 @@ on:
     types: [published]
 
 concurrency:
-  group: publish-${{ github.event.release.tag_name }}
+  group: publish-${{ github.event_name == 'push' && github.ref_name || github.event.release.tag_name }}
   cancel-in-progress: false
 
 permissions:
@@ -25,14 +25,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event_name == 'push' && github.ref || github.event.release.tag_name }}
 
       - name: Setup project
         uses: ./.github/actions/setup-project
 
       - name: Verify release version
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.release.tag_name }}
         run: |
           package_version=$(node -p "require('./package.json').version")
           if [ "$RELEASE_TAG" != "v$package_version" ]; then
