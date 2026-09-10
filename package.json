@@ -1,0 +1,53 @@
+{
+  "name": "genbumppush",
+  "description": "Generate changelog, bump version, then push",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "author": "Mon Albert Gamil <mrgamilmonalbert@gmail.com>",
+  "homepage": "https://github.com/xcvzmoon/genbumppush#readme",
+  "bugs": {
+    "url": "https://github.com/xcvzmoon/genbumppush/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xcvzmoon/genbumppush.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build",
+    "prepare": "vp config"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "bumpp": "^11.1.0",
+    "typescript": "^6.0.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.1",
+    "vite-plus": "^0.3.1"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.5.0",
+      "onFail": "download"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.4.0",
+      "onFail": "download"
+    }
+  }
+}
