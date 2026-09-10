@@ -1,0 +1,16 @@
+name: Setup project
+description: Set up Vite+ and install the locked dependencies. Assumes the repository has already been checked out.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Vite+
+      uses: voidzero-dev/setup-vp@v1.19.0
+      with:
+        node-version: '26.5.0'
+        cache: true
+        run-install: false
+
+    - name: Install dependencies
+      run: vp install --frozen-lockfile
+      shell: bash
