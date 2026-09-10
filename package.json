@@ -1,7 +1,7 @@
 {
   "name": "genbumppush",
   "description": "Generate changelog, bump version, then push",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "license": "MIT",
   "author": "Mon Albert Gamil <mrgamilmonalbert@gmail.com>",
