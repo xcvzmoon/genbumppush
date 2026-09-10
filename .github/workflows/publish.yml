@@ -4,11 +4,9 @@ on:
   push:
     tags:
       - 'v*'
-  release:
-    types: [published]
 
 concurrency:
-  group: publish-${{ github.event_name == 'push' && github.ref_name || github.event.release.tag_name }}
+  group: publish-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -25,14 +23,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || github.event.release.tag_name }}
+          ref: ${{ github.ref }}
 
       - name: Setup project
         uses: ./.github/actions/setup-project
 
       - name: Verify release version
         env:
-          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           package_version=$(node -p "require('./package.json').version")
           if [ "$RELEASE_TAG" != "v$package_version" ]; then
@@ -46,6 +44,8 @@ jobs:
           vp test
           vp pack
 
-      - name: Publish with provenance
+      - name: Publish to npm with OIDC
         working-directory: ${{ runner.temp }}
-        run: npm publish "$GITHUB_WORKSPACE" --access public --provenance
+        run: npm publish "$GITHUB_WORKSPACE" --access public
+        env:
+          NPM_CONFIG_PROVENANCE: 'false'
