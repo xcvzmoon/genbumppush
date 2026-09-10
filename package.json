@@ -3,6 +3,7 @@
   "description": "Generate changelog, bump version, then push",
   "version": "0.0.1",
   "type": "module",
+  "sideEffects": false,
   "license": "MIT",
   "author": "Mon Albert Gamil <mrgamilmonalbert@gmail.com>",
   "homepage": "https://github.com/xcvzmoon/genbumppush#readme",
@@ -18,11 +19,26 @@
   ],
   "exports": {
     ".": "./dist/index.mjs",
+    "./bin": "./dist/bin.mjs",
     "./package.json": "./package.json"
+  },
+  "bin": {
+    "genbumppush": "./dist/bin.mjs"
   },
   "publishConfig": {
     "access": "public"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "keywords": [
+    "release",
+    "changelog",
+    "semver",
+    "conventional-commits",
+    "monorepo",
+    "tauri"
+  ],
   "scripts": {
     "build": "vp pack",
     "dev": "vp pack --watch",
@@ -31,9 +47,12 @@
     "prepublishOnly": "vp run build",
     "prepare": "vp config"
   },
+  "dependencies": {
+    "c12": "4.0.0-rc.1",
+    "changelogen": "^0.6.2"
+  },
   "devDependencies": {
     "@types/node": "26.5.0",
-    "bumpp": "^11.1.0",
     "typescript": "^6.0.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.3.1",
     "vite-plus": "^0.3.1"
