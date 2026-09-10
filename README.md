@@ -1,5 +1,10 @@
 # genbumppush
 
+[![CI](https://img.shields.io/github/actions/workflow/status/xcvzmoon/genbumppush/ci.yml?branch=main&color=black)](https://github.com/xcvzmoon/genbumppush/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/actions/workflow/status/xcvzmoon/genbumppush/release.yml?color=black)](https://github.com/xcvzmoon/genbumppush/actions/workflows/release.yml)
+[![npm version](https://img.shields.io/npm/v/%40xcvzmoon%2Fgenbumppush?color=black)](https://www.npmjs.com/package/@xcvzmoon/genbumppush)
+[![npm downloads](https://img.shields.io/npm/dm/%40xcvzmoon%2Fgenbumppush?color=black)](https://www.npmjs.com/package/@xcvzmoon/genbumppush)
+
 `genbumppush` handles the repetitive parts of releasing a Conventional Commit repository. It picks the next semantic version, updates the files you choose, writes the changelog, commits, tags, and can push the branch and tag together.
 
 It supports Node packages, Nuxt applications, fixed-version monorepos, Tauri applications, and tag-driven publication/deployment. It does not publish packages or create provider releases itself; GitHub Actions or GitLab CI should handle those after the tag is pushed.
