@@ -2,8 +2,8 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/xcvzmoon/genbumppush/ci.yml?branch=main&color=black)](https://github.com/xcvzmoon/genbumppush/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/actions/workflow/status/xcvzmoon/genbumppush/release.yml?color=black)](https://github.com/xcvzmoon/genbumppush/actions/workflows/release.yml)
-[![npm version](https://img.shields.io/npm/v/%40xcvzmoon%2Fgenbumppush?color=black)](https://www.npmjs.com/package/@xcvzmoon/genbumppush)
-[![npm downloads](https://img.shields.io/npm/dm/%40xcvzmoon%2Fgenbumppush?color=black)](https://www.npmjs.com/package/@xcvzmoon/genbumppush)
+[![npm version](https://img.shields.io/npm/v/genbumppush?color=black)](https://www.npmjs.com/package/genbumppush)
+[![npm downloads](https://img.shields.io/npm/dm/genbumppush?color=black)](https://www.npmjs.com/package/genbumppush)
 
 `genbumppush` handles the repetitive parts of releasing a Conventional Commit repository. It picks the next semantic version, updates the files you choose, writes the changelog, commits, tags, and can push the branch and tag together.
 
