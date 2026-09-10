@@ -43,6 +43,11 @@ jobs:
             ' CHANGELOG.md)
           fi
 
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; leaving it unchanged."
+            exit 0
+          fi
+
           if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
             gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
           else
