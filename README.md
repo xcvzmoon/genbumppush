@@ -366,6 +366,10 @@ vp pack
 
 The test suite covers CLI parsing, C12 configuration, SemVer edges, JSON/npm/Cargo adapters, recursive workspaces, dry runs, rollback, hooks, tag collisions, detached HEAD, upstream checks, and a real atomic push to a temporary bare Git remote.
 
+### Agent skill
+
+This repository ships a project skill at `skills/genbumppush/`. Agents working in this checkout can load it for configuration recipes, CLI and error recovery, CI patterns, and library development notes. New conversations that open this worktree pick it up automatically; it is not published on npm.
+
 ## License
 
 MIT
