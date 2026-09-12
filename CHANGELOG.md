@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.0.4
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.3...v0.0.4)
+
+### 🚀 Enhancements
+
+- **env:** Add GENBUMPPUSH_* preference helpers with legacy fallbacks ([968315a](https://github.com/xcvzmoon/genbumppush/commit/968315a))
+- **config:** Load .env via c12 setupDotenv before release config ([8070104](https://github.com/xcvzmoon/genbumppush/commit/8070104))
+- **github:** Prefer GENBUMPPUSH_* tokens, host, and repository ([333d79a](https://github.com/xcvzmoon/genbumppush/commit/333d79a))
+- **gitlab:** Prefer GENBUMPPUSH_* tokens, host, and project ([36827d4](https://github.com/xcvzmoon/genbumppush/commit/36827d4))
+- **skill:** Add project skill for genbumppush ([92d0ac4](https://github.com/xcvzmoon/genbumppush/commit/92d0ac4))
+
+### 📖 Documentation
+
+- Document .env loading and GENBUMPPUSH_* env fallbacks ([712ff1d](https://github.com/xcvzmoon/genbumppush/commit/712ff1d))
+- Document package.json config key and secret boundaries ([eddbe95](https://github.com/xcvzmoon/genbumppush/commit/eddbe95))
+- **api:** Add JSDoc for public exports with examples ([c78ebd0](https://github.com/xcvzmoon/genbumppush/commit/c78ebd0))
+
+### 🏡 Chore
+
+- **test:** Unset vitest reporters ([0e14e21](https://github.com/xcvzmoon/genbumppush/commit/0e14e21))
+
+### ✅ Tests
+
+- Cover .env loading and GENBUMPPUSH_* precedence over legacy vars ([e9d2158](https://github.com/xcvzmoon/genbumppush/commit/e9d2158))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.3
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.2...v0.0.3)
