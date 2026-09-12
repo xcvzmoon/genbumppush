@@ -7,18 +7,10 @@
 
 `genbumppush` handles the repetitive parts of releasing a Conventional Commit repository. It picks the next semantic version, updates the files you choose, writes the changelog, commits, tags, and can push the branch and tag together.
 
-It supports Node packages, Nuxt applications, fixed-version monorepos, Tauri applications, and tag-driven publication/deployment. It does not publish packages or create provider releases itself; GitHub Actions or GitLab CI should handle those after the tag is pushed.
-
-## Requirements and installation
-
-- Node.js 20.19+
-- Git
-- Conventional Commits
-- An upstream branch when pushing (unless `requireUpstream: false`)
+It supports Node packages, web applications (React, Vue, Solid, Svelte, Astro, Next, Nuxt, etc.), fixed-version monorepos, Tauri applications, and tag-driven publication/deployment. It does not publish packages or create provider releases itself; GitHub Actions or GitLab CI should handle those after the tag is pushed.
 
 ```bash
-pnpm add -D genbumppush
-# or: npm install --save-dev genbumppush
+npm install --save-dev genbumppush
 ```
 
 ```json
@@ -50,13 +42,13 @@ genbumppush [release] [options]
 | `prerelease` | `1.2.4-beta.0`      |
 
 ```bash
-pnpm release                         # detect from Conventional Commits
-pnpm release patch                   # force a release type
-pnpm release preminor --preid beta  # start a prerelease channel
-pnpm release prerelease --preid beta
-pnpm release --dry-run               # preview without mutation
-pnpm release patch --no-push         # local commit and tag only
-pnpm release patch --yes             # non-interactive
+npm run release                         # detect from Conventional Commits
+npm run release patch                   # force a release type
+npm run release preminor --preid beta  # start a prerelease channel
+npm run release prerelease --preid beta
+npm run release --dry-run               # preview without mutation
+npm run release patch --no-push         # local commit and tag only
+npm run release patch --yes             # non-interactive
 genbumppush --cwd ../app --config release.config.ts patch
 genbumppush --retry-gitlab v1.2.4  # retry provider release after a successful Git push
 ```
@@ -251,7 +243,7 @@ Keep artifact publication and GitLab release creation in protected, tag-triggere
 
 | Scenario               | Recommended setup                                  |
 | ---------------------- | -------------------------------------------------- |
-| Local release          | `pnpm release`, confirm interactively              |
+| Local release          | `npm run release`, confirm interactively           |
 | CI release             | `genbumppush --yes` with protected Git credentials |
 | Preview only           | `genbumppush --dry-run --yes`                      |
 | Local commit/tag only  | `genbumppush patch --no-push --yes`                |
