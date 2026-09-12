@@ -223,6 +223,82 @@ function packageVersion(cwd: string): string {
 
   return data.version;
 }
+/**
+ * Run a full release (or a dry run / provider retry) for one repository.
+ *
+ * Typical flow:
+ * 1. Load config and `.env`
+ * 2. Verify the worktree is a clean Git repo on a branch
+ * 3. Detect (or force) a release type from Conventional Commits
+ * 4. Confirm, run `before` hooks, update version files and the changelog
+ * 5. Commit, tag, and atomically push branch + tag
+ * 6. Optionally create a GitHub/GitLab release, then run `after` hooks
+ *
+ * Version-file or commit failures restore files and the index. A failed tag
+ * or network push can leave the release commit locally so you can inspect
+ * and retry — see the returned {@link ReleaseResult} and any thrown
+ * {@link ReleaseError}.
+ *
+ * Prefer the `genbumppush` CLI for day-to-day use. Call this directly when
+ * embedding releases in a Node script or CI job that already builds
+ * {@link CliOptions}.
+ *
+ * @param options - Parsed CLI options. `cwd`, `dryRun`, `yes`, and `help` are required;
+ *   the rest override config when set.
+ * @returns A summary of what happened. Never mutates when `dryRun` is `true`.
+ * @throws {@link ReleaseError} for expected failures (dirty worktree, existing tag,
+ *   cancelled confirmation, Git/provider errors). Unexpected errors may also throw.
+ *
+ * @example Dry run in the current directory
+ * ```ts
+ * import { runRelease } from 'genbumppush';
+ *
+ * const result = await runRelease({
+ *   cwd: process.cwd(),
+ *   dryRun: true,
+ *   yes: true,
+ *   help: false,
+ * });
+ *
+ * console.log(result);
+ * // {
+ * //   currentVersion: '1.2.3',
+ * //   newVersion: '1.3.0',
+ * //   releaseType: 'minor',
+ * //   tag: 'v1.3.0',
+ * //   pushed: false,
+ * //   dryRun: true,
+ * //   commitCount: 4
+ * // }
+ * ```
+ *
+ * @example Non-interactive patch release that stays local
+ * ```ts
+ * import { runRelease } from 'genbumppush';
+ *
+ * await runRelease({
+ *   cwd: process.cwd(),
+ *   dryRun: false,
+ *   yes: true,
+ *   help: false,
+ *   release: 'patch',
+ *   push: false,
+ * });
+ * ```
+ *
+ * @example Retry only the GitLab release after Git already succeeded
+ * ```ts
+ * import { runRelease } from 'genbumppush';
+ *
+ * await runRelease({
+ *   cwd: process.cwd(),
+ *   dryRun: false,
+ *   yes: true,
+ *   help: false,
+ *   gitlabRetryTag: 'v1.3.0',
+ * });
+ * ```
+ */
 export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
   const overrides: GenBumpPushConfig = {};
 
