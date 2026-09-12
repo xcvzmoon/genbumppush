@@ -20,8 +20,20 @@ import { createInterface } from 'node:readline/promises';
 import { loadReleaseConfig } from './config.ts';
 import { ReleaseError } from './error.ts';
 import { git, isGitRepository, remoteTagExists, runHook, tagExists } from './git.ts';
-import { createGitHubRelease, resolveGitHubRepo, resolveGitHubToken } from './github.ts';
-import { createGitLabRelease, releaseNotes } from './gitlab.ts';
+import {
+  createGitHubRelease,
+  githubTokenEnvLabel,
+  resolveGitHubRepo,
+  resolveGitHubToken,
+} from './github.ts';
+import {
+  createGitLabRelease,
+  gitLabTokenEnvLabel,
+  releaseNotes,
+  resolveGitLabHost,
+  resolveGitLabProject,
+  resolveGitLabToken,
+} from './gitlab.ts';
 import {
   applyVersionChanges,
   planVersionChanges,
@@ -54,21 +66,23 @@ function gitLabContext(config: GitLabOptions | undefined): GitLabContext {
     throw new ReleaseError('GITLAB_RELEASE_FAILED', 'Enable gitlab before creating a release.');
   }
 
-  const tokenEnv = config.tokenEnv ?? 'GITLAB_TOKEN';
-  const token = process.env[tokenEnv];
-  const project = config.project ?? process.env.GITLAB_PROJECT;
-  if (token === undefined || token.length === 0) {
-    throw new ReleaseError('GITLAB_RELEASE_FAILED', `Set ${tokenEnv} to create a GitLab release.`);
-  }
-  if (project === undefined || project.length === 0) {
+  const token = resolveGitLabToken(config.tokenEnv);
+  const project = resolveGitLabProject(config.project);
+  if (token === undefined) {
     throw new ReleaseError(
       'GITLAB_RELEASE_FAILED',
-      'Set gitlab.project or GITLAB_PROJECT to create a GitLab release.',
+      `Set ${gitLabTokenEnvLabel(config.tokenEnv)} to create a GitLab release.`,
+    );
+  }
+  if (project === undefined) {
+    throw new ReleaseError(
+      'GITLAB_RELEASE_FAILED',
+      'Set gitlab.project or GENBUMPPUSH_GITLAB_PROJECT (or GITLAB_PROJECT) to create a GitLab release.',
     );
   }
 
   const context: GitLabContext = {
-    host: config.host ?? process.env.GITLAB_HOST ?? 'https://gitlab.com',
+    host: resolveGitLabHost(config.host),
     project,
     token,
   };
@@ -93,8 +107,10 @@ function resolveGitHubContext(
 
   const token = resolveGitHubToken(config.tokenEnv);
   if (token === undefined) {
-    const label = config.tokenEnv ?? 'GITHUB_TOKEN';
-    throw new ReleaseError('GITHUB_RELEASE_FAILED', `Set ${label} to create a GitHub release.`);
+    throw new ReleaseError(
+      'GITHUB_RELEASE_FAILED',
+      `Set ${githubTokenEnvLabel(config.tokenEnv)} to create a GitHub release.`,
+    );
   }
 
   return resolveGitHubRepo(cwd, {
