@@ -6,6 +6,11 @@ import { createGitHubRelease, resolveGitHubRepo, resolveGitHubToken } from '../s
 
 const originalFetch = globalThis.fetch;
 
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) Reflect.deleteProperty(process.env, name);
+  else process.env[name] = value;
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -124,17 +129,24 @@ describe('GitHub provider', () => {
     ).rejects.toThrow('Could not send the GitHub release request');
   });
 
-  test('resolves token from explicit env or GitHub defaults', () => {
-    const originalGithub = process.env.GITHUB_TOKEN;
-    const originalGh = process.env.GH_TOKEN;
-    const originalChangelogen = process.env.CHANGELOGEN_TOKENS_GITHUB;
-    const originalCustom = process.env.CUSTOM_GITHUB_TOKEN;
+  test('resolves token with GENBUMPPUSH_* preferred and legacy fallbacks', () => {
+    const originals = {
+      genbumppush: process.env.GENBUMPPUSH_GITHUB_TOKEN,
+      github: process.env.GITHUB_TOKEN,
+      gh: process.env.GH_TOKEN,
+      changelogen: process.env.CHANGELOGEN_TOKENS_GITHUB,
+      custom: process.env.CUSTOM_GITHUB_TOKEN,
+    };
     try {
+      delete process.env.GENBUMPPUSH_GITHUB_TOKEN;
       delete process.env.GITHUB_TOKEN;
       delete process.env.GH_TOKEN;
       delete process.env.CHANGELOGEN_TOKENS_GITHUB;
       delete process.env.CUSTOM_GITHUB_TOKEN;
       expect(resolveGitHubToken()).toBeUndefined();
+
+      process.env.CHANGELOGEN_TOKENS_GITHUB = 'from-changelogen';
+      expect(resolveGitHubToken()).toBe('from-changelogen');
 
       process.env.GH_TOKEN = 'from-gh';
       expect(resolveGitHubToken()).toBe('from-gh');
@@ -142,32 +154,48 @@ describe('GitHub provider', () => {
       process.env.GITHUB_TOKEN = 'from-github';
       expect(resolveGitHubToken()).toBe('from-github');
 
+      process.env.GENBUMPPUSH_GITHUB_TOKEN = 'from-genbumppush';
+      expect(resolveGitHubToken()).toBe('from-genbumppush');
+
       process.env.CUSTOM_GITHUB_TOKEN = 'custom';
       expect(resolveGitHubToken('CUSTOM_GITHUB_TOKEN')).toBe('custom');
       expect(resolveGitHubToken('MISSING_ENV')).toBeUndefined();
     } finally {
-      if (originalGithub === undefined) delete process.env.GITHUB_TOKEN;
-      else process.env.GITHUB_TOKEN = originalGithub;
-      if (originalGh === undefined) delete process.env.GH_TOKEN;
-      else process.env.GH_TOKEN = originalGh;
-      if (originalChangelogen === undefined) delete process.env.CHANGELOGEN_TOKENS_GITHUB;
-      else process.env.CHANGELOGEN_TOKENS_GITHUB = originalChangelogen;
-      if (originalCustom === undefined) delete process.env.CUSTOM_GITHUB_TOKEN;
-      else process.env.CUSTOM_GITHUB_TOKEN = originalCustom;
+      restoreEnv('GENBUMPPUSH_GITHUB_TOKEN', originals.genbumppush);
+      restoreEnv('GITHUB_TOKEN', originals.github);
+      restoreEnv('GH_TOKEN', originals.gh);
+      restoreEnv('CHANGELOGEN_TOKENS_GITHUB', originals.changelogen);
+      restoreEnv('CUSTOM_GITHUB_TOKEN', originals.custom);
+    }
+  });
+
+  test('prefers GENBUMPPUSH_GITHUB_REPOSITORY over GITHUB_REPOSITORY', async () => {
+    const originalGen = process.env.GENBUMPPUSH_GITHUB_REPOSITORY;
+    const originalGithub = process.env.GITHUB_REPOSITORY;
+    try {
+      process.env.GENBUMPPUSH_GITHUB_REPOSITORY = 'from-genbumppush/app';
+      process.env.GITHUB_REPOSITORY = 'from-github/app';
+      const resolved = await resolveGitHubRepo(process.cwd(), { host: 'github.com' });
+      expect(resolved).toEqual({ host: 'github.com', repo: 'from-genbumppush/app' });
+    } finally {
+      restoreEnv('GENBUMPPUSH_GITHUB_REPOSITORY', originalGen);
+      restoreEnv('GITHUB_REPOSITORY', originalGithub);
     }
   });
 
   test('requires an explicit repo when it cannot be resolved from the remote', async () => {
     const empty = await mkdtemp(join(tmpdir(), 'genbumppush-github-'));
+    const originalGen = process.env.GENBUMPPUSH_GITHUB_REPOSITORY;
     const original = process.env.GITHUB_REPOSITORY;
     try {
+      delete process.env.GENBUMPPUSH_GITHUB_REPOSITORY;
       delete process.env.GITHUB_REPOSITORY;
       await expect(resolveGitHubRepo(empty, { host: 'github.com' })).rejects.toThrow(
-        'github.repo or GITHUB_REPOSITORY',
+        'github.repo or GENBUMPPUSH_GITHUB_REPOSITORY',
       );
     } finally {
-      if (original === undefined) delete process.env.GITHUB_REPOSITORY;
-      else process.env.GITHUB_REPOSITORY = original;
+      restoreEnv('GENBUMPPUSH_GITHUB_REPOSITORY', originalGen);
+      restoreEnv('GITHUB_REPOSITORY', original);
     }
   });
 

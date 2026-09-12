@@ -1,8 +1,18 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vite-plus/test';
+import { afterEach, describe, expect, test } from 'vite-plus/test';
 import { loadReleaseConfig } from '../src/config.ts';
+
+const dotenvKeys = [
+  'GENBUMPPUSH_GITHUB_TOKEN',
+  'GENBUMPPUSH_FROM_ENV_FILE',
+  'EXISTING_WINS',
+] as const;
+
+afterEach(() => {
+  for (const key of dotenvKeys) Reflect.deleteProperty(process.env, key);
+});
 
 describe('loadReleaseConfig', () => {
   test('loads and overrides a TypeScript C12 config', async () => {
@@ -38,5 +48,25 @@ describe('loadReleaseConfig', () => {
     expect(config.changelog).toBe(false);
     expect(config.git?.remote).toBe('upstream');
     expect(config.git?.push).toBe(true);
+  });
+
+  test('loads .env into process.env without clobbering existing values', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'genbumppush-'));
+    await writeFile(
+      join(cwd, '.env'),
+      [
+        'GENBUMPPUSH_FROM_ENV_FILE=from-file',
+        'GENBUMPPUSH_GITHUB_TOKEN=file-token',
+        'EXISTING_WINS=from-file',
+        '',
+      ].join('\n'),
+    );
+    process.env.EXISTING_WINS = 'from-process';
+
+    await loadReleaseConfig(cwd);
+
+    expect(process.env.GENBUMPPUSH_FROM_ENV_FILE).toBe('from-file');
+    expect(process.env.GENBUMPPUSH_GITHUB_TOKEN).toBe('file-token');
+    expect(process.env.EXISTING_WINS).toBe('from-process');
   });
 });
