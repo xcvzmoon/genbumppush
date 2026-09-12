@@ -4,6 +4,7 @@ export { runRelease } from './release.ts';
 export type {
   CliOptions,
   GenBumpPushConfig,
+  GitHubOptions,
   GitOptions,
   GitLabOptions,
   HookOptions,
