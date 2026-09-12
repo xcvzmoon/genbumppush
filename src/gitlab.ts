@@ -1,3 +1,4 @@
+import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 
 export type GitLabReleaseOptions = {
@@ -8,6 +9,27 @@ export type GitLabReleaseOptions = {
   name: string;
   description: string;
 };
+
+export const GITLAB_TOKEN_FALLBACKS = [ENV.GITLAB_TOKEN, 'GITLAB_TOKEN'] as const;
+
+export function gitLabTokenEnvLabel(tokenEnv?: string): string {
+  return tokenEnv ?? `${ENV.GITLAB_TOKEN} (or GITLAB_TOKEN)`;
+}
+
+export function resolveGitLabToken(tokenEnv?: string): string | undefined {
+  if (tokenEnv !== undefined) {
+    return readEnv(tokenEnv);
+  }
+  return readEnvFirst(...GITLAB_TOKEN_FALLBACKS);
+}
+
+export function resolveGitLabHost(host?: string): string {
+  return host ?? readEnv(ENV.GITLAB_HOST) ?? readEnv('GITLAB_HOST') ?? 'https://gitlab.com';
+}
+
+export function resolveGitLabProject(project?: string): string | undefined {
+  return project ?? readEnvFirst(ENV.GITLAB_PROJECT, 'GITLAB_PROJECT');
+}
 
 export function releaseNotes(changelog: string, tag: string): string {
   const lines = changelog.split('\n');
