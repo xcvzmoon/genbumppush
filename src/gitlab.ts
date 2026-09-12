@@ -25,6 +25,8 @@ export function releaseNotes(changelog: string, tag: string): string {
   return notes.join('\n').trim() || 'See CHANGELOG.md for release notes.';
 }
 
+export const PROVIDER_FETCH_TIMEOUT_MS = 30_000;
+
 export async function createGitLabRelease(options: GitLabReleaseOptions): Promise<void> {
   const host = options.host.replace(/\/$/, '');
   const url = `${host}/api/v4/projects/${encodeURIComponent(options.project)}/releases`;
@@ -33,6 +35,7 @@ export async function createGitLabRelease(options: GitLabReleaseOptions): Promis
   try {
     response = await fetch(url, {
       method: 'POST',
+      signal: AbortSignal.timeout(PROVIDER_FETCH_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${options.token}`,
         'Content-Type': 'application/json',

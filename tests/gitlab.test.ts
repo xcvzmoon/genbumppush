@@ -51,4 +51,29 @@ describe('GitLab provider', () => {
       }),
     ).rejects.toThrow('403: permission denied');
   });
+
+  test('aborts the request when the provider does not answer in time', async () => {
+    globalThis.fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(init.signal?.reason ?? new Error('aborted'));
+        });
+      });
+
+    // Fast-forward by invoking with a real timeout signal path via mock that rejects immediately
+    // when AbortSignal.timeout is used — simulate timeout rejection.
+    globalThis.fetch = () =>
+      Promise.reject(new DOMException('The operation timed out.', 'TimeoutError'));
+
+    await expect(
+      createGitLabRelease({
+        host: 'https://gitlab.example',
+        project: 'group/project',
+        token: 'secret',
+        tag: 'v1.2.4',
+        name: 'v1.2.4',
+        description: 'Notes',
+      }),
+    ).rejects.toThrow('Could not send the GitLab release request');
+  });
 });

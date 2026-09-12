@@ -25,13 +25,15 @@ export function tagExists(cwd: string, tag: string): boolean {
 }
 
 export function isGitRepository(cwd: string): boolean {
-  return (
-    spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).stdout.trim() === 'true'
-  );
+  const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
+    return false;
+  }
+  return result.stdout.trim() === 'true';
 }
 
 export function remoteTagExists(cwd: string, remote: string, tag: string): boolean {
