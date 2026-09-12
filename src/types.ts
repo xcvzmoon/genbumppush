@@ -34,6 +34,14 @@ export type GitLabOptions = {
   releaseName?: string;
 };
 
+export type GitHubOptions = {
+  enabled?: boolean;
+  host?: string;
+  repo?: string;
+  tokenEnv?: string;
+  releaseName?: string;
+};
+
 export type GenBumpPushConfig = {
   release?: ReleaseType;
   preid?: string;
@@ -43,6 +51,7 @@ export type GenBumpPushConfig = {
   excludeDependencyCommits?: boolean;
   git?: GitOptions;
   gitlab?: GitLabOptions;
+  github?: GitHubOptions;
   hooks?: HookOptions;
 };
 
@@ -50,6 +59,7 @@ export type CliOptions = {
   cwd: string;
   configFile?: string;
   gitlabRetryTag?: string;
+  githubRetryTag?: string;
   release?: ReleaseType;
   preid?: string;
   dryRun: boolean;
@@ -67,4 +77,5 @@ export type ReleaseResult = {
   dryRun: boolean;
   commitCount: number;
   gitlabReleaseCreated?: boolean;
+  githubReleaseCreated?: boolean;
 };

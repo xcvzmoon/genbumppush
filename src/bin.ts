@@ -9,10 +9,18 @@ try {
     console.info(HELP_TEXT);
   } else {
     const result = await runRelease(options);
-    if (result.gitlabReleaseCreated) {
+    if (result.githubReleaseCreated) {
+      console.info(`GitHub release ${result.tag ?? ''} created.`);
+    } else if (result.gitlabReleaseCreated) {
       console.info(`GitLab release ${result.tag ?? ''} created.`);
     } else if (result.releaseType === undefined) {
       console.info('No releasable commits found.');
+    } else if (result.dryRun) {
+      console.info(
+        `Dry run: would create ${result.tag ?? result.releaseType} from ${result.currentVersion}${
+          result.newVersion !== undefined ? ` to v${result.newVersion}` : ''
+        }.`,
+      );
     } else if (!result.dryRun) {
       console.info(
         `${result.tag ?? result.releaseType} created${result.pushed ? ' and pushed' : ''}.`,

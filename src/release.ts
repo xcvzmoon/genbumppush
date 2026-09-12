@@ -1,5 +1,11 @@
 import type { GitCommit, ResolvedChangelogConfig } from 'changelogen';
-import type { CliOptions, GenBumpPushConfig, GitLabOptions, ReleaseResult } from './types.ts';
+import type {
+  CliOptions,
+  GenBumpPushConfig,
+  GitHubOptions,
+  GitLabOptions,
+  ReleaseResult,
+} from './types.ts';
 import {
   determineSemverChange,
   generateMarkDown,
@@ -14,6 +20,7 @@ import { createInterface } from 'node:readline/promises';
 import { loadReleaseConfig } from './config.ts';
 import { ReleaseError } from './error.ts';
 import { git, isGitRepository, remoteTagExists, runHook, tagExists } from './git.ts';
+import { createGitHubRelease, resolveGitHubRepo, resolveGitHubToken } from './github.ts';
 import { createGitLabRelease, releaseNotes } from './gitlab.ts';
 import {
   applyVersionChanges,
@@ -69,6 +76,37 @@ function gitLabContext(config: GitLabOptions | undefined): GitLabContext {
   return context;
 }
 
+type GitHubContext = {
+  host: string;
+  repo: string;
+  token: string;
+  releaseName?: string;
+};
+
+function resolveGitHubContext(
+  config: GitHubOptions | undefined,
+  cwd: string,
+): Promise<GitHubContext> {
+  if (config?.enabled !== true) {
+    throw new ReleaseError('GITHUB_RELEASE_FAILED', 'Enable github before creating a release.');
+  }
+
+  const token = resolveGitHubToken(config.tokenEnv);
+  if (token === undefined) {
+    const label = config.tokenEnv ?? 'GITHUB_TOKEN';
+    throw new ReleaseError('GITHUB_RELEASE_FAILED', `Set ${label} to create a GitHub release.`);
+  }
+
+  return resolveGitHubRepo(cwd, {
+    host: config.host,
+    repo: config.repo,
+  }).then(({ host, repo }) => {
+    const context: GitHubContext = { host, repo, token };
+    if (config.releaseName !== undefined) context.releaseName = config.releaseName;
+    return context;
+  });
+}
+
 async function changelogText(cwd: string, config: GenBumpPushConfig): Promise<string> {
   if (config.changelog === false) return '';
   const configured =
@@ -87,6 +125,23 @@ async function publishGitLab(
   await createGitLabRelease({
     host: context.host,
     project: context.project,
+    token: context.token,
+    tag,
+    name: context.releaseName?.replaceAll('{{version}}', version) ?? tag,
+    description: releaseNotes(await changelogText(cwd, config), tag),
+  });
+}
+
+async function publishGitHub(
+  context: GitHubContext,
+  cwd: string,
+  config: GenBumpPushConfig,
+  tag: string,
+  version: string,
+): Promise<void> {
+  await createGitHubRelease({
+    host: context.host,
+    repo: context.repo,
     token: context.token,
     tag,
     name: context.releaseName?.replaceAll('{{version}}', version) ?? tag,
@@ -187,6 +242,26 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     };
   }
 
+  if (options.githubRetryTag !== undefined) {
+    const context = await resolveGitHubContext(config.github, cwd);
+    const remote = config.git?.remote ?? 'origin';
+    if (!remoteTagExists(cwd, remote, options.githubRetryTag)) {
+      throw new ReleaseError(
+        'GITHUB_RELEASE_FAILED',
+        `Tag ${options.githubRetryTag} does not exist on ${remote}.`,
+      );
+    }
+    await publishGitHub(context, cwd, config, options.githubRetryTag, currentVersion);
+    return {
+      currentVersion,
+      tag: options.githubRetryTag,
+      pushed: true,
+      dryRun: false,
+      commitCount: 0,
+      githubReleaseCreated: true,
+    };
+  }
+
   if (config.git?.requireClean !== false && git(['status', '--porcelain'], cwd) !== '') {
     throw new ReleaseError('DIRTY_WORKTREE', 'Commit or stash all changes before releasing.');
   }
@@ -210,12 +285,18 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
   const releaseType = detected;
   console.info(`Release: v${currentVersion} → ${releaseType} (${commits.length} commits)`);
 
+  const plannedVersion = bumpVersion(currentVersion, releaseType, config.preid);
+  const plannedTag = render(config.git?.tagName ?? 'v{{version}}', plannedVersion);
+
   if (options.dryRun) {
+    console.info(`Dry run: v${currentVersion} → v${plannedVersion} (${plannedTag})`);
     console.info(await generateMarkDown(commits, changelog));
 
     return {
       currentVersion,
+      newVersion: plannedVersion,
       releaseType,
+      tag: plannedTag,
       pushed: false,
       dryRun: true,
       commitCount: commits.length,
@@ -233,12 +314,23 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     gitlab = gitLabContext(config.gitlab);
   }
 
+  let github: GitHubContext | undefined;
+  if (config.github?.enabled === true) {
+    if (!push) {
+      throw new ReleaseError(
+        'GITHUB_RELEASE_FAILED',
+        'GitHub release creation requires git.push to be enabled.',
+      );
+    }
+    github = await resolveGitHubContext(config.github, cwd);
+  }
+
   if (!options.yes && !(await confirm(`Create a ${releaseType} release?`))) {
     throw new ReleaseError('CANCELLED', 'Release cancelled.');
   }
 
-  const plannedVersion = bumpVersion(currentVersion, releaseType, config.preid);
-  const tag = render(config.git?.tagName ?? 'v{{version}}', plannedVersion);
+  const version = plannedVersion;
+  const tag = plannedTag;
   const remote = config.git?.remote ?? 'origin';
 
   if (tagExists(cwd, tag) || (push && remoteTagExists(cwd, remote, tag))) {
@@ -249,7 +341,6 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     runHook(command, cwd);
   }
 
-  const version = plannedVersion;
   const changes = await planVersionChanges(cwd, currentVersion, version, config);
   const changed = changes.map((change) => change.path);
 
@@ -329,6 +420,20 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     }
   }
 
+  let githubReleaseCreated = false;
+  if (github !== undefined) {
+    try {
+      await publishGitHub(github, cwd, config, tag, version);
+      githubReleaseCreated = true;
+    } catch (error) {
+      throw new ReleaseError(
+        'RELEASE_PUBLISHED_GITHUB_FAILED',
+        `Git release ${tag} was pushed, but GitHub release creation failed. Retry with: genbumppush --retry-github ${tag}`,
+        { cause: error },
+      );
+    }
+  }
+
   for (const command of list(config.hooks?.after)) {
     runHook(command, cwd);
   }
@@ -343,5 +448,6 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     commitCount: commits.length,
   };
   if (gitlabReleaseCreated) result.gitlabReleaseCreated = true;
+  if (githubReleaseCreated) result.githubReleaseCreated = true;
   return result;
 }

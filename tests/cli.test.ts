@@ -35,6 +35,18 @@ describe('parseCliOptions', () => {
     );
   });
 
+  test('parses GitHub retries and rejects conflicting provider retries', () => {
+    expect(parseCliOptions(['--retry-github=v1.2.4'])).toMatchObject({
+      githubRetryTag: 'v1.2.4',
+    });
+    expect(() => parseCliOptions(['patch', '--retry-github', 'v1.2.4'])).toThrow(
+      'cannot be combined',
+    );
+    expect(() => parseCliOptions(['--retry-gitlab', 'v1.2.4', '--retry-github', 'v1.2.4'])).toThrow(
+      'cannot be combined',
+    );
+  });
+
   test('rejects duplicate positional release types', () => {
     expect(() => parseCliOptions(['minor', 'patch'])).toThrow('Unknown argument');
   });

@@ -7,18 +7,10 @@
 
 `genbumppush` handles the repetitive parts of releasing a Conventional Commit repository. It picks the next semantic version, updates the files you choose, writes the changelog, commits, tags, and can push the branch and tag together.
 
-It supports Node packages, Nuxt applications, fixed-version monorepos, Tauri applications, and tag-driven publication/deployment. It does not publish packages or create provider releases itself; GitHub Actions or GitLab CI should handle those after the tag is pushed.
-
-## Requirements and installation
-
-- Node.js 20.19+
-- Git
-- Conventional Commits
-- An upstream branch when pushing (unless `requireUpstream: false`)
+It supports Node packages, web applications (React, Vue, Solid, Svelte, Astro, Next, Nuxt, etc.), fixed-version monorepos, Tauri applications, and tag-driven publication/deployment. It does not publish packages or create provider releases itself; GitHub Actions or GitLab CI should handle those after the tag is pushed.
 
 ```bash
-pnpm add -D genbumppush
-# or: npm install --save-dev genbumppush
+npm install --save-dev genbumppush
 ```
 
 ```json
@@ -50,15 +42,15 @@ genbumppush [release] [options]
 | `prerelease` | `1.2.4-beta.0`      |
 
 ```bash
-pnpm release                         # detect from Conventional Commits
-pnpm release patch                   # force a release type
-pnpm release preminor --preid beta  # start a prerelease channel
-pnpm release prerelease --preid beta
-pnpm release --dry-run               # preview without mutation
-pnpm release patch --no-push         # local commit and tag only
-pnpm release patch --yes             # non-interactive
+npm run release                                             # detect from Conventional Commits
+npm run release patch                                       # force a release type
+npm run release preminor --preid beta                       # start a prerelease channel
+npm run release prerelease --preid beta
+npm run release --dry-run                                   # preview without mutation
+npm run release patch --no-push                             # local commit and tag only
+npm run release patch --yes                                 # non-interactive
 genbumppush --cwd ../app --config release.config.ts patch
-genbumppush --retry-gitlab v1.2.4  # retry provider release after a successful Git push
+genbumppush --retry-gitlab v1.2.4                           # retry provider release after a successful Git push
 ```
 
 | Option                 | Meaning                                                  |
@@ -68,6 +60,7 @@ genbumppush --retry-gitlab v1.2.4  # retry provider release after a successful G
 | `--config <path>`      | Explicit C12 config file                                 |
 | `--preid <id>`         | Identifier containing letters, numbers, and hyphens      |
 | `--retry-gitlab <tag>` | Retry GitLab release creation for an existing remote tag |
+| `--retry-github <tag>` | Retry GitHub release creation for an existing remote tag |
 | `--dry-run`            | Preview without changing files, Git, or remotes          |
 | `--no-push`            | Keep commit and tag local                                |
 | `--yes`, `-y`          | Skip confirmation                                        |
@@ -140,6 +133,12 @@ The same object can live under `"genbumppush"` in `package.json`. JavaScript and
 | `git.tagMessage`           | string                    | `v{{version}}`                 | Annotated tag template                 |
 | `hooks.before`             | string or string[]        | unset                          | Commands before file changes           |
 | `hooks.after`              | string or string[]        | unset                          | Commands after tag/push                |
+| `github.enabled`           | boolean                   | `false`                        | Create a GitHub release after push     |
+| `github.host`              | string                    | `github.com`                   | github.com or GHES host                |
+| `github.repo`              | string                    | `GITHUB_REPOSITORY` / remote   | `owner/name`                           |
+| `github.tokenEnv`          | string                    | `GITHUB_TOKEN`                 | Token environment variable             |
+| `github.releaseName`       | string                    | tag                            | Release title template                 |
+| `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push     |
 
 `{{version}}` is replaced in commit and tag templates. Hooks run through the shell in the repository directory; only use trusted configuration.
 
@@ -205,13 +204,28 @@ A release commit message alone does not trigger tag workflows. The tag must exis
 git push origin main v0.0.1
 ```
 
-For npm trusted publishing, configure the npm package trusted publisher to match the repository/workflow, keep `id-token: write`, and use a current npm. The included workflow disables provenance for private GitHub source repositories because npm rejects private-source provenance bundles. Public repositories can enable provenance after trusted publishing is configured.
+For npm trusted publishing, configure the npm package trusted publisher to match the repository/workflow, keep `id-token: write`, and use a current npm. The included workflow enables provenance for public repositories. Private source repositories should set `NPM_CONFIG_PROVENANCE=false` because npm rejects private-source provenance bundles.
 
-## GitLab CI
+## GitHub and GitLab releases
 
-GitLab release creation is supported as an opt-in provider. The Git branch and tag are
-still pushed atomically first; only then does genbumppush call the GitLab Releases API.
-Configure a project path and provide an API token through the environment:
+GitHub Releases are supported as an opt-in provider after the Git branch and tag are pushed atomically. genbumppush uses the exact `git.tagName` string (so custom templates work) and creates or updates the release via the GitHub API (including GHES).
+
+```ts
+export default defineConfig({
+  git: { push: true },
+  github: {
+    enabled: true,
+    // host: 'github.com', // or a GHES host
+    // repo: 'group/project', // or GITHUB_REPOSITORY / package.json repository
+    tokenEnv: 'GITHUB_TOKEN', // also honors GH_TOKEN and CHANGELOGEN_TOKENS_GITHUB
+    releaseName: 'v{{version}}',
+  },
+});
+```
+
+If GitHub release creation fails after the Git push succeeds, fix credentials and run `genbumppush --retry-github <tag>`.
+
+GitLab release creation remains supported the same way. Configure a project path and provide an API token through the environment:
 
 ```ts
 export default defineConfig({
@@ -251,7 +265,7 @@ Keep artifact publication and GitLab release creation in protected, tag-triggere
 
 | Scenario               | Recommended setup                                  |
 | ---------------------- | -------------------------------------------------- |
-| Local release          | `pnpm release`, confirm interactively              |
+| Local release          | `npm run release`, confirm interactively           |
 | CI release             | `genbumppush --yes` with protected Git credentials |
 | Preview only           | `genbumppush --dry-run --yes`                      |
 | Local commit/tag only  | `genbumppush patch --no-push --yes`                |
@@ -284,7 +298,7 @@ Run `git status --short` and inspect an existing tag with `git show <tag>`. Comm
 
 ### Private-repository provenance failure
 
-npm rejects provenance bundles identifying private GitHub source repositories. Use the included workflow’s `NPM_CONFIG_PROVENANCE=false` behavior, or make the source public and enable provenance after trusted publishing setup.
+npm rejects provenance bundles identifying private GitHub source repositories. Set `NPM_CONFIG_PROVENANCE=false` in the publish workflow, or make the source public and keep provenance enabled.
 
 ### Workflow did not run
 

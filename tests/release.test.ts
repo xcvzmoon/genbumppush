@@ -53,6 +53,8 @@ describe('runRelease', () => {
       help: false,
     });
     expect(result.releaseType).toBe('patch');
+    expect(result.newVersion).toBe('1.2.4');
+    expect(result.tag).toBe('v1.2.4');
     expect(JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8')).version).toBe('1.2.3');
     expect(git(cwd, 'rev-parse', 'HEAD')).toBe(before);
     expect(git(cwd, 'status', '--porcelain')).toBe('');
@@ -349,5 +351,117 @@ describe('runRelease', () => {
     expect(result.pushed).toBe(true);
     expect(git(remote, 'show', 'refs/heads/main:package.json')).toContain('"version":"1.2.4"');
     expect(git(remote, 'cat-file', '-t', 'refs/tags/v1.2.4')).toBe('tag');
+  });
+
+  test('rejects GitHub releases without push before creating a commit or tag', async () => {
+    const cwd = await repository();
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      'export default { changelog: false, git: { push: false }, github: { enabled: true, repo: "group/project" } };\n',
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+    const head = git(cwd, 'rev-parse', 'HEAD');
+
+    await expect(
+      runRelease({ cwd, release: 'patch', dryRun: false, yes: true, help: false }),
+    ).rejects.toThrow('git.push');
+
+    expect(git(cwd, 'rev-parse', 'HEAD')).toBe(head);
+    expect(git(cwd, 'tag', '--list', 'v1.2.4')).toBe('');
+  });
+
+  test('creates a GitHub release after a successful push', async () => {
+    const cwd = await repository();
+    const remote = await mkdtemp(join(tmpdir(), 'genbumppush-remote-'));
+    git(remote, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', remote);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true }, github: { enabled: true, repo: 'group/project' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+
+    const originalFetch = globalThis.fetch;
+    process.env.GITHUB_TOKEN = 'secret';
+    const calls: { method: string; url: string }[] = [];
+    globalThis.fetch = (input, init) => {
+      const request = new Request(input, init);
+      calls.push({ method: request.method, url: request.url });
+      if (request.method === 'GET') {
+        return Promise.resolve(new Response('Not Found', { status: 404 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ id: 7 }), { status: 201 }));
+    };
+
+    try {
+      const result = await runRelease({
+        cwd,
+        release: 'patch',
+        dryRun: false,
+        yes: true,
+        help: false,
+      });
+      expect(result).toMatchObject({
+        newVersion: '1.2.4',
+        tag: 'v1.2.4',
+        pushed: true,
+        githubReleaseCreated: true,
+      });
+      expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/releases'))).toBe(
+        true,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.GITHUB_TOKEN;
+    }
+  });
+
+  test('reports a retry command when GitHub fails after the Git push', async () => {
+    const cwd = await repository();
+    const remote = await mkdtemp(join(tmpdir(), 'genbumppush-remote-'));
+    git(remote, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', remote);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true }, github: { enabled: true, repo: 'group/project', tokenEnv: 'TEST_GITHUB_TOKEN' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+
+    const originalFetch = globalThis.fetch;
+    process.env.TEST_GITHUB_TOKEN = 'secret';
+    globalThis.fetch = () => Promise.resolve(new Response('unavailable', { status: 503 }));
+
+    try {
+      await expect(
+        runRelease({ cwd, release: 'patch', dryRun: false, yes: true, help: false }),
+      ).rejects.toThrow('genbumppush --retry-github v1.2.4');
+      expect(git(remote, 'cat-file', '-t', 'refs/tags/v1.2.4')).toBe('tag');
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.TEST_GITHUB_TOKEN;
+    }
+  });
+
+  test('rejects a missing GitHub token before creating a commit or tag', async () => {
+    const cwd = await repository();
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true, requireUpstream: false }, github: { enabled: true, repo: 'group/project', tokenEnv: 'MISSING_GITHUB_TOKEN' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+    const head = git(cwd, 'rev-parse', 'HEAD');
+    delete process.env.MISSING_GITHUB_TOKEN;
+
+    await expect(
+      runRelease({ cwd, release: 'patch', dryRun: false, yes: true, help: false }),
+    ).rejects.toThrow('Set MISSING_GITHUB_TOKEN');
+    expect(git(cwd, 'rev-parse', 'HEAD')).toBe(head);
+    expect(git(cwd, 'tag', '--list', 'v1.2.4')).toBe('');
   });
 });

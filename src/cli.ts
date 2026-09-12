@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { ReleaseError } from './error.ts';
 import { RELEASE_TYPES } from './types.ts';
 
-export const HELP_TEXT = `Usage: genbumppush [release] [options]\n\nGenerate a changelog, bump versions, create an annotated tag, and push atomically.\n\nArguments:\n  release             ${RELEASE_TYPES.join(' | ')}\n\nOptions:\n  --cwd <path>        Repository directory\n  --config <path>     Explicit C12 config file\n  --preid <id>        Prerelease identifier\n  --retry-gitlab <tag> Retry GitLab release creation for a pushed tag\n  --dry-run           Preview without changes\n  --no-push           Keep commit and tag local\n  --yes, -y           Skip confirmation\n  --help, -h          Show help\n`;
+export const HELP_TEXT = `Usage: genbumppush [release] [options]\n\nGenerate a changelog, bump versions, create an annotated tag, and push atomically.\n\nArguments:\n  release             ${RELEASE_TYPES.join(' | ')}\n\nOptions:\n  --cwd <path>        Repository directory\n  --config <path>     Explicit C12 config file\n  --preid <id>        Prerelease identifier\n  --retry-gitlab <tag> Retry GitLab release creation for a pushed tag\n  --retry-github <tag> Retry GitHub release creation for a pushed tag\n  --dry-run           Preview without changes\n  --no-push           Keep commit and tag local\n  --yes, -y           Skip confirmation\n  --help, -h          Show help\n`;
 
 function isType(value: string): value is ReleaseType {
   return RELEASE_TYPES.some((item) => item === value);
@@ -80,6 +80,11 @@ export function parseCliOptions(args: string[]): CliOptions {
         if (inlineValue === undefined) index += 1;
         break;
 
+      case '--retry-github':
+        result.githubRetryTag = inlineValue ?? next(args, index, '--retry-github');
+        if (inlineValue === undefined) index += 1;
+        break;
+
       default:
         if (isType(arg) && result.release === undefined) {
           result.release = arg;
@@ -93,6 +98,18 @@ export function parseCliOptions(args: string[]): CliOptions {
     throw new ReleaseError(
       'CONFLICTING_ARGUMENTS',
       '--retry-gitlab cannot be combined with a release type.',
+    );
+  }
+  if (result.githubRetryTag !== undefined && result.release !== undefined) {
+    throw new ReleaseError(
+      'CONFLICTING_ARGUMENTS',
+      '--retry-github cannot be combined with a release type.',
+    );
+  }
+  if (result.gitlabRetryTag !== undefined && result.githubRetryTag !== undefined) {
+    throw new ReleaseError(
+      'CONFLICTING_ARGUMENTS',
+      '--retry-gitlab and --retry-github cannot be combined.',
     );
   }
   return result;
