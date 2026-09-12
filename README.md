@@ -66,7 +66,7 @@ genbumppush --retry-gitlab v1.2.4                           # retry provider rel
 | `--yes`, `-y`          | Skip confirmation                                        |
 | `--help`, `-h`         | Print help                                               |
 
-Values are resolved in this order: CLI, config file, the `genbumppush` key in `package.json`, then defaults. A CLI flag such as `--no-push` overrides the config file.
+Values are resolved in this order: CLI flags, C12 config file, the `"genbumppush"` key in `package.json`, then defaults. A CLI flag such as `--no-push` overrides both config surfaces.
 
 ## Commit detection
 
@@ -84,7 +84,7 @@ chore(deps): update vite   -> excluded by default
 
 ## Configuration
 
-Create `genbumppush.config.ts`:
+Prefer a dedicated C12 file so the config stays typed, commented, and out of dependency diffs. Create `genbumppush.config.ts`:
 
 ```ts
 import { defineConfig } from 'genbumppush';
@@ -113,7 +113,31 @@ export default defineConfig({
 });
 ```
 
-The same object can live under `"genbumppush"` in `package.json`. JavaScript and TypeScript C12 files are supported; use `--config` for another location.
+JavaScript C12 files are also supported. Use `--config <path>` to load a file at another location.
+
+### Config in `package.json`
+
+For simple setups, the same object can live under the exact top-level key `"genbumppush"` in `package.json`. Other keys are ignored.
+
+```json
+{
+  "name": "my-app",
+  "version": "1.2.3",
+  "genbumppush": {
+    "changelog": "CHANGELOG.md",
+    "files": ["package.json"],
+    "git": {
+      "remote": "origin",
+      "push": true,
+      "tagName": "v{{version}}"
+    }
+  }
+}
+```
+
+JSON has no comments and no `defineConfig` typing, so move to `genbumppush.config.ts` once the release config grows nested `github`/`gitlab` blocks or custom hooks. A config file always wins over the `package.json` key.
+
+**Never put secrets in either surface.** Tokens, host credentials, and project IDs with credentials belong in the process environment or an uncommitted `.env`. Config may only name which env var to read (for example `tokenEnv`).
 
 | Key                        | Type                      | Default                        | Behavior                                |
 | -------------------------- | ------------------------- | ------------------------------ | --------------------------------------- |
@@ -144,7 +168,7 @@ The same object can live under `"genbumppush"` in `package.json`. JavaScript and
 
 ## Environment variables and `.env`
 
-Config never stores secrets. Provider credentials are read from the process environment. On every run, genbumppush loads `.env` from the working directory (same behavior as changelogen). Values already set in the real environment win over `.env`.
+Config never stores secrets — not in `genbumppush.config.ts`, not in `"genbumppush"` inside `package.json`. Those files are committed; tokens must not be. Provider credentials are read from the process environment. On every run, genbumppush loads `.env` from the working directory (same behavior as changelogen). Values already set in the real environment win over `.env`.
 
 Preferred names use the `GENBUMPPUSH_` prefix. Legacy provider variables still work as fallbacks:
 
@@ -164,11 +188,7 @@ When `tokenEnv` is set in config, only that exact variable name is read; the fal
 GENBUMPPUSH_GITHUB_TOKEN=ghp_...
 ```
 
-```json
-{ "scripts": { "release": "genbumppush" } }
-```
-
-`.env` is optional. CI should inject the same variables through the job environment instead of a file.
+`.env` is optional. Add it to `.gitignore`. CI should inject the same variables through the job environment instead of a file.
 
 ## Version-file adapters
 
@@ -345,6 +365,10 @@ vp pack
 ```
 
 The test suite covers CLI parsing, C12 configuration, SemVer edges, JSON/npm/Cargo adapters, recursive workspaces, dry runs, rollback, hooks, tag collisions, detached HEAD, upstream checks, and a real atomic push to a temporary bare Git remote.
+
+### Agent skill
+
+This repository ships a project skill at `skills/genbumppush/`. Agents working in this checkout can load it for configuration recipes, CLI and error recovery, CI patterns, and library development notes. New conversations that open this worktree pick it up automatically; it is not published on npm.
 
 ## License
 
