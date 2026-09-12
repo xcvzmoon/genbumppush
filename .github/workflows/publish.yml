@@ -48,4 +48,4 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: npm publish "$GITHUB_WORKSPACE" --access public
         env:
-          NPM_CONFIG_PROVENANCE: 'false'
+          NPM_CONFIG_PROVENANCE: 'true'
