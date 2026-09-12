@@ -1,4 +1,5 @@
 import { resolveRepoConfig } from 'changelogen';
+import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 
 export type GitHubReleaseOptions = {
@@ -34,25 +35,32 @@ function encodeRepoPath(repo: string): string {
     .join('/');
 }
 
+export const GITHUB_TOKEN_FALLBACKS = [
+  ENV.GITHUB_TOKEN,
+  'GITHUB_TOKEN',
+  'GH_TOKEN',
+  'CHANGELOGEN_TOKENS_GITHUB',
+] as const;
+
+export function githubTokenEnvLabel(tokenEnv?: string): string {
+  return tokenEnv ?? `${ENV.GITHUB_TOKEN} (or GITHUB_TOKEN, GH_TOKEN, CHANGELOGEN_TOKENS_GITHUB)`;
+}
+
 export function resolveGitHubToken(tokenEnv?: string): string | undefined {
   if (tokenEnv !== undefined) {
-    const token = process.env[tokenEnv];
-    return token !== undefined && token.length > 0 ? token : undefined;
+    return readEnv(tokenEnv);
   }
-
-  for (const name of ['GITHUB_TOKEN', 'GH_TOKEN', 'CHANGELOGEN_TOKENS_GITHUB'] as const) {
-    const token = process.env[name];
-    if (token !== undefined && token.length > 0) return token;
-  }
-  return undefined;
+  return readEnvFirst(...GITHUB_TOKEN_FALLBACKS);
 }
 
 export async function resolveGitHubRepo(
   cwd: string,
   source: GitHubRepoSource,
 ): Promise<{ host: string; repo: string }> {
-  const host = normalizeHost(source.host ?? process.env.GITHUB_API_URL ?? 'github.com');
-  const explicit = source.repo ?? process.env.GITHUB_REPOSITORY;
+  const host = normalizeHost(
+    source.host ?? readEnv(ENV.GITHUB_HOST) ?? readEnv('GITHUB_API_URL') ?? 'github.com',
+  );
+  const explicit = source.repo ?? readEnvFirst(ENV.GITHUB_REPOSITORY, 'GITHUB_REPOSITORY');
   if (explicit !== undefined && explicit.length > 0) {
     return { host, repo: explicit };
   }
@@ -67,7 +75,7 @@ export async function resolveGitHubRepo(
 
   throw new ReleaseError(
     'GITHUB_RELEASE_FAILED',
-    'Set github.repo or GITHUB_REPOSITORY to create a GitHub release.',
+    `Set github.repo or ${ENV.GITHUB_REPOSITORY} (or GITHUB_REPOSITORY) to create a GitHub release.`,
   );
 }
 

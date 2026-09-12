@@ -1,5 +1,5 @@
 import type { GenBumpPushConfig } from './types.ts';
-import { createDefineConfig, loadConfig } from 'c12';
+import { createDefineConfig, loadConfig, setupDotenv } from 'c12';
 
 export const defineConfig = createDefineConfig<GenBumpPushConfig>();
 
@@ -24,6 +24,8 @@ export async function loadReleaseConfig(
   configFile?: string,
   overrides?: GenBumpPushConfig,
 ): Promise<GenBumpPushConfig> {
+  await setupDotenv({ cwd });
+
   return (
     await loadConfig<GenBumpPushConfig>({
       name: 'genbumppush',

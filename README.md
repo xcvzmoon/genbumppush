@@ -115,32 +115,60 @@ export default defineConfig({
 
 The same object can live under `"genbumppush"` in `package.json`. JavaScript and TypeScript C12 files are supported; use `--config` for another location.
 
-| Key                        | Type                      | Default                        | Behavior                               |
-| -------------------------- | ------------------------- | ------------------------------ | -------------------------------------- |
-| `release`                  | release type              | detected                       | Force release type                     |
-| `preid`                    | string                    | `beta`                         | Prerelease channel                     |
-| `changelog`                | `false \| true \| string` | `CHANGELOG.md`                 | Disable, default, or custom path       |
-| `excludeDependencyCommits` | boolean                   | `true`                         | Ignore non-breaking dependency commits |
-| `files`                    | string[]                  | `['package.json']`             | Version files                          |
-| `recursive`                | boolean                   | `false`                        | Discover nested manifests              |
-| `git.remote`               | string                    | `origin`                       | Remote for checks and push             |
-| `git.push`                 | boolean                   | `true`                         | Push branch and tag                    |
-| `git.sign`                 | boolean                   | `false`                        | Sign commit and tag                    |
-| `git.requireClean`         | boolean                   | `true`                         | Reject uncommitted changes             |
-| `git.requireUpstream`      | boolean                   | `true`                         | Require upstream before pushing        |
-| `git.commitMessage`        | string                    | `chore(release): v{{version}}` | Commit template                        |
-| `git.tagName`              | string                    | `v{{version}}`                 | Tag template                           |
-| `git.tagMessage`           | string                    | `v{{version}}`                 | Annotated tag template                 |
-| `hooks.before`             | string or string[]        | unset                          | Commands before file changes           |
-| `hooks.after`              | string or string[]        | unset                          | Commands after tag/push                |
-| `github.enabled`           | boolean                   | `false`                        | Create a GitHub release after push     |
-| `github.host`              | string                    | `github.com`                   | github.com or GHES host                |
-| `github.repo`              | string                    | `GITHUB_REPOSITORY` / remote   | `owner/name`                           |
-| `github.tokenEnv`          | string                    | `GITHUB_TOKEN`                 | Token environment variable             |
-| `github.releaseName`       | string                    | tag                            | Release title template                 |
-| `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push     |
+| Key                        | Type                      | Default                        | Behavior                                |
+| -------------------------- | ------------------------- | ------------------------------ | --------------------------------------- |
+| `release`                  | release type              | detected                       | Force release type                      |
+| `preid`                    | string                    | `beta`                         | Prerelease channel                      |
+| `changelog`                | `false \| true \| string` | `CHANGELOG.md`                 | Disable, default, or custom path        |
+| `excludeDependencyCommits` | boolean                   | `true`                         | Ignore non-breaking dependency commits  |
+| `files`                    | string[]                  | `['package.json']`             | Version files                           |
+| `recursive`                | boolean                   | `false`                        | Discover nested manifests               |
+| `git.remote`               | string                    | `origin`                       | Remote for checks and push              |
+| `git.push`                 | boolean                   | `true`                         | Push branch and tag                     |
+| `git.sign`                 | boolean                   | `false`                        | Sign commit and tag                     |
+| `git.requireClean`         | boolean                   | `true`                         | Reject uncommitted changes              |
+| `git.requireUpstream`      | boolean                   | `true`                         | Require upstream before pushing         |
+| `git.commitMessage`        | string                    | `chore(release): v{{version}}` | Commit template                         |
+| `git.tagName`              | string                    | `v{{version}}`                 | Tag template                            |
+| `git.tagMessage`           | string                    | `v{{version}}`                 | Annotated tag template                  |
+| `hooks.before`             | string or string[]        | unset                          | Commands before file changes            |
+| `hooks.after`              | string or string[]        | unset                          | Commands after tag/push                 |
+| `github.enabled`           | boolean                   | `false`                        | Create a GitHub release after push      |
+| `github.host`              | string                    | `github.com`                   | github.com or GHES host                 |
+| `github.repo`              | string                    | env / remote                   | `owner/name`                            |
+| `github.tokenEnv`          | string                    | auto                           | Exact env var name (disables fallbacks) |
+| `github.releaseName`       | string                    | tag                            | Release title template                  |
+| `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push      |
 
 `{{version}}` is replaced in commit and tag templates. Hooks run through the shell in the repository directory; only use trusted configuration.
+
+## Environment variables and `.env`
+
+Config never stores secrets. Provider credentials are read from the process environment. On every run, genbumppush loads `.env` from the working directory (same behavior as changelogen). Values already set in the real environment win over `.env`.
+
+Preferred names use the `GENBUMPPUSH_` prefix. Legacy provider variables still work as fallbacks:
+
+| Purpose           | Preferred                       | Fallbacks                                               |
+| ----------------- | ------------------------------- | ------------------------------------------------------- |
+| GitHub token      | `GENBUMPPUSH_GITHUB_TOKEN`      | `GITHUB_TOKEN`, `GH_TOKEN`, `CHANGELOGEN_TOKENS_GITHUB` |
+| GitHub host       | `GENBUMPPUSH_GITHUB_HOST`       | `GITHUB_API_URL`                                        |
+| GitHub repository | `GENBUMPPUSH_GITHUB_REPOSITORY` | `GITHUB_REPOSITORY`                                     |
+| GitLab token      | `GENBUMPPUSH_GITLAB_TOKEN`      | `GITLAB_TOKEN`                                          |
+| GitLab host       | `GENBUMPPUSH_GITLAB_HOST`       | `GITLAB_HOST`                                           |
+| GitLab project    | `GENBUMPPUSH_GITLAB_PROJECT`    | `GITLAB_PROJECT`                                        |
+
+When `tokenEnv` is set in config, only that exact variable name is read; the fallback chain is skipped. Leave `tokenEnv` unset to use the preferred/fallback chain above.
+
+```bash
+# .env (do not commit)
+GENBUMPPUSH_GITHUB_TOKEN=ghp_...
+```
+
+```json
+{ "scripts": { "release": "genbumppush" } }
+```
+
+`.env` is optional. CI should inject the same variables through the job environment instead of a file.
 
 ## Version-file adapters
 
@@ -216,8 +244,8 @@ export default defineConfig({
   github: {
     enabled: true,
     // host: 'github.com', // or a GHES host
-    // repo: 'group/project', // or GITHUB_REPOSITORY / package.json repository
-    tokenEnv: 'GITHUB_TOKEN', // also honors GH_TOKEN and CHANGELOGEN_TOKENS_GITHUB
+    // repo: 'group/project', // or GENBUMPPUSH_GITHUB_REPOSITORY / GITHUB_REPOSITORY / package.json
+    // omit tokenEnv to use GENBUMPPUSH_GITHUB_TOKEN, then GITHUB_TOKEN / GH_TOKEN / CHANGELOGEN_TOKENS_GITHUB
     releaseName: 'v{{version}}',
   },
 });
@@ -234,14 +262,12 @@ export default defineConfig({
     enabled: true,
     host: 'https://gitlab.com',
     project: 'group/project',
-    tokenEnv: 'GITLAB_TOKEN',
     releaseName: 'v{{version}}',
   },
 });
 ```
 
-`GITLAB_HOST` and `GITLAB_PROJECT` may be used as environment fallbacks. The token
-must be available as the configured `tokenEnv` (default `GITLAB_TOKEN`). GitLab receives
+Without `tokenEnv`, GitLab tokens resolve from `GENBUMPPUSH_GITLAB_TOKEN`, then `GITLAB_TOKEN`. `GENBUMPPUSH_GITLAB_HOST` / `GITLAB_HOST` and `GENBUMPPUSH_GITLAB_PROJECT` / `GITLAB_PROJECT` cover host and project fallbacks. GitLab receives
 the matching `CHANGELOG.md` section as the release description. If `git.push` is false,
 the provider is rejected because GitLab cannot create a release for an unpublished tag.
 

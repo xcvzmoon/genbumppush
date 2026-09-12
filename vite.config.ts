@@ -8,7 +8,6 @@ export default defineConfig({
     include: ['tests/**'],
     passWithNoTests: true,
     testTimeout: 15_000,
-    reporters: 'verbose',
   },
   pack: {
     entry: ['src/index.ts', 'src/bin.ts'],
