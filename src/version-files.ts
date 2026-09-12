@@ -100,6 +100,170 @@ function assertCurrent(path: string, actual: string, expected: string): void {
   }
 }
 
+type StringPropertySpan = {
+  value: string;
+  valueStart: number;
+  valueEnd: number;
+};
+
+function parseJsonString(raw: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isString(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type JsonFrame = { kind: 'object'; introKey?: string } | { kind: 'array' };
+
+function readJsonString(content: string, start: number): { end: number; raw: string } {
+  let index = start + 1;
+  let escape = false;
+  while (index < content.length) {
+    const char = content[index];
+    if (char === undefined) break;
+    if (escape) {
+      escape = false;
+    } else if (char === '\\') {
+      escape = true;
+    } else if (char === '"') {
+      index += 1;
+      return { end: index, raw: content.slice(start, index) };
+    }
+    index += 1;
+  }
+  return { end: content.length, raw: content.slice(start) };
+}
+
+function objectKeyPath(stack: readonly JsonFrame[], propertyKey: string): string[] {
+  const path: string[] = [];
+  for (const frame of stack) {
+    if (frame.kind === 'object' && frame.introKey !== undefined) path.push(frame.introKey);
+  }
+  path.push(propertyKey);
+  return path;
+}
+
+/**
+ * Locate a JSON string property by object-key path without reformatting the file.
+ * Nested keys with the same name are never selected.
+ */
+function findJsonStringProperty(
+  content: string,
+  keyPath: readonly string[],
+): StringPropertySpan | undefined {
+  if (keyPath.length === 0) return undefined;
+
+  const stack: JsonFrame[] = [];
+  let index = 0;
+  let pendingKey: string | undefined;
+  let afterColon = false;
+
+  const skipWhitespace = () => {
+    while (index < content.length && /\s/.test(content[index] ?? '')) index += 1;
+  };
+
+  while (index < content.length) {
+    skipWhitespace();
+    const char = content[index];
+    if (char === undefined) break;
+
+    if (char === '{') {
+      stack.push({ kind: 'object', introKey: pendingKey });
+      pendingKey = undefined;
+      afterColon = false;
+      index += 1;
+      continue;
+    }
+
+    if (char === '}') {
+      stack.pop();
+      pendingKey = undefined;
+      afterColon = false;
+      index += 1;
+      continue;
+    }
+
+    if (char === '[') {
+      stack.push({ kind: 'array' });
+      pendingKey = undefined;
+      afterColon = false;
+      index += 1;
+      continue;
+    }
+
+    if (char === ']') {
+      stack.pop();
+      pendingKey = undefined;
+      afterColon = false;
+      index += 1;
+      continue;
+    }
+
+    if (char === ',') {
+      pendingKey = undefined;
+      afterColon = false;
+      index += 1;
+      continue;
+    }
+
+    if (char === ':') {
+      afterColon = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      const { end, raw } = readJsonString(content, index);
+      index = end;
+      const decoded = parseJsonString(raw);
+      if (decoded === undefined) continue;
+
+      const top = stack.at(-1);
+      if (top?.kind === 'object' && !afterColon) {
+        pendingKey = decoded;
+        continue;
+      }
+
+      if (afterColon && pendingKey !== undefined) {
+        const path = objectKeyPath(stack, pendingKey);
+        const matches =
+          path.length === keyPath.length && path.every((segment, i) => segment === keyPath[i]);
+        if (matches) {
+          const valueStart = end - raw.length + 1;
+          const valueEnd = end - 1;
+          return {
+            value: decoded,
+            valueStart,
+            valueEnd,
+          };
+        }
+        pendingKey = undefined;
+        afterColon = false;
+      }
+      continue;
+    }
+
+    // Numbers and literals after a colon complete that property.
+    if (afterColon) {
+      pendingKey = undefined;
+      afterColon = false;
+    }
+    index += 1;
+  }
+
+  return undefined;
+}
+
+function replaceJsonStringProperty(
+  content: string,
+  span: StringPropertySpan,
+  value: string,
+): string {
+  return `${content.slice(0, span.valueStart)}${JSON.stringify(value).slice(1, -1)}${content.slice(span.valueEnd)}`;
+}
+
 function replaceJsonVersion(
   content: string,
   path: string,
@@ -112,7 +276,12 @@ function replaceJsonVersion(
   }
 
   assertCurrent(path, parsed.version, current);
-  const updated = content.replace(/("version"\s*:\s*")[^"]*(")/, `$1${version}$2`);
+  const span = findJsonStringProperty(content, ['version']);
+  if (span === undefined) {
+    throw new ReleaseError('MISSING_VERSION', `${path} has no top-level version string.`);
+  }
+
+  const updated = replaceJsonStringProperty(content, span, version);
   if (updated === content) throw new ReleaseError('VERSION_UNCHANGED', `${path} was not updated.`);
   return updated;
 }
@@ -144,13 +313,27 @@ function replacePackageLockVersion(
     assertCurrent(path, rootVersion, current);
   }
 
-  data.version = version;
-  if (data.packages?.[''] !== undefined) {
-    data.packages[''].version = version;
+  const rootSpan = findJsonStringProperty(content, ['version']);
+  if (rootSpan === undefined) {
+    throw new ReleaseError('MISSING_VERSION', `${path} has no root version.`);
   }
 
-  const indent = /^\s+"/.exec(content)?.[0].length ?? 2;
-  return `${JSON.stringify(data, null, indent)}\n`;
+  let updated = replaceJsonStringProperty(content, rootSpan, version);
+
+  if (isString(rootVersion)) {
+    // packages[""].version — empty-string key is unique in lockfile root packages map.
+    const packagesSpan = findJsonStringProperty(updated, ['packages', '', 'version']);
+    if (packagesSpan === undefined) {
+      throw new ReleaseError(
+        'MISSING_VERSION',
+        `${path} has no packages[""].version string to update.`,
+      );
+    }
+    updated = replaceJsonStringProperty(updated, packagesSpan, version);
+  }
+
+  if (updated === content) throw new ReleaseError('VERSION_UNCHANGED', `${path} was not updated.`);
+  return updated;
 }
 
 function cargoSection(content: string): CargoSection {

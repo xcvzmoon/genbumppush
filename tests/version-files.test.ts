@@ -44,6 +44,161 @@ describe('version file adapters', () => {
     expect(result).toContain('"node_modules/x": {\n      "version": "1.2.3"');
   });
 
+  test('updates only the top-level JSON version when nested version keys appear first', async () => {
+    const cwd = await fixture();
+    await writeFile(
+      join(cwd, 'app.json'),
+      JSON.stringify(
+        {
+          config: { version: '9.9.9', nested: { version: '8.8.8' } },
+          name: 'app',
+          version: '1.2.3',
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', { files: ['app.json'] });
+    const parsed: unknown = JSON.parse(changes[0]?.after ?? '{}');
+    expect(parsed).toMatchObject({
+      version: '1.2.4',
+      config: { version: '9.9.9', nested: { version: '8.8.8' } },
+    });
+  });
+
+  test('updates only the top-level JSON version when nested version keys appear last', async () => {
+    const cwd = await fixture();
+    await writeFile(
+      join(cwd, 'app.json'),
+      JSON.stringify(
+        {
+          name: 'app',
+          version: '1.2.3',
+          engines: { version: '9.9.9' },
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', { files: ['app.json'] });
+    const parsed: unknown = JSON.parse(changes[0]?.after ?? '{}');
+    expect(parsed).toMatchObject({
+      version: '1.2.4',
+      engines: { version: '9.9.9' },
+    });
+  });
+
+  test('preserves lockfile formatting and dependency versions when bumping package-lock', async () => {
+    const cwd = await fixture();
+    const before = [
+      '{',
+      '  "name": "root",',
+      '  "version": "1.2.3",',
+      '  "lockfileVersion": 3,',
+      '  "packages": {',
+      '    "": {',
+      '      "name": "root",',
+      '      "version": "1.2.3"',
+      '    },',
+      '    "node_modules/x": {',
+      '      "version": "1.2.3"',
+      '    }',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+    await writeFile(join(cwd, 'package-lock.json'), before);
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', {
+      files: ['package-lock.json'],
+    });
+    const after = changes[0]?.after ?? '';
+    expect(after).toBe(
+      before
+        .replace(
+          '"version": "1.2.3",\n  "lockfileVersion"',
+          '"version": "1.2.4",\n  "lockfileVersion"',
+        )
+        .replace(
+          '"name": "root",\n      "version": "1.2.3"',
+          '"name": "root",\n      "version": "1.2.4"',
+        ),
+    );
+    expect(after).toContain('"node_modules/x": {\n      "version": "1.2.3"\n    }');
+    expect(JSON.parse(after)).toMatchObject({
+      version: '1.2.4',
+      packages: { '': { version: '1.2.4' }, 'node_modules/x': { version: '1.2.3' } },
+    });
+  });
+
+  test('bumps minified package-lock without pretty-printing the whole file', async () => {
+    const cwd = await fixture();
+    const minified = JSON.stringify({
+      name: 'root',
+      version: '1.2.3',
+      packages: { '': { version: '1.2.3' }, 'node_modules/x': { version: '1.2.3' } },
+    });
+    await writeFile(join(cwd, 'package-lock.json'), minified);
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', {
+      files: ['package-lock.json'],
+    });
+    const after = changes[0]?.after ?? '';
+    expect(after.includes('\n')).toBe(false);
+    expect(JSON.parse(after)).toMatchObject({
+      version: '1.2.4',
+      packages: { '': { version: '1.2.4' }, 'node_modules/x': { version: '1.2.3' } },
+    });
+  });
+
+  test('updates package-lock root version when packages[""] has no version field', async () => {
+    const cwd = await fixture();
+    const lock = {
+      name: 'root',
+      version: '1.2.3',
+      packages: { '': { name: 'root' }, 'node_modules/x': { version: '1.2.3' } },
+    };
+    await writeFile(join(cwd, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', {
+      files: ['package-lock.json'],
+    });
+    expect(JSON.parse(changes[0]?.after ?? '{}')).toMatchObject({
+      version: '1.2.4',
+      packages: { '': { name: 'root' }, 'node_modules/x': { version: '1.2.3' } },
+    });
+  });
+
+  test('rejects package-lock without packages[""] when a version field is present but mismatched', async () => {
+    const cwd = await fixture();
+    const lock = {
+      name: 'root',
+      version: '1.2.3',
+      packages: { '': { version: '9.9.9' } },
+    };
+    await writeFile(join(cwd, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
+    await expect(
+      planVersionChanges(cwd, '1.2.3', '1.2.4', { files: ['package-lock.json'] }),
+    ).rejects.toThrow('expected 1.2.3');
+  });
+
+  test('preserves four-space indentation in package-lock updates', async () => {
+    const cwd = await fixture();
+    const before = `${JSON.stringify(
+      {
+        name: 'root',
+        version: '1.2.3',
+        packages: { '': { version: '1.2.3' } },
+      },
+      null,
+      4,
+    )}\n`;
+    await writeFile(join(cwd, 'package-lock.json'), before);
+    const changes = await planVersionChanges(cwd, '1.2.3', '1.2.4', {
+      files: ['package-lock.json'],
+    });
+    const after = changes[0]?.after ?? '';
+    expect(after).toContain('    "version": "1.2.4"');
+    expect(after.startsWith('{\n    "name"')).toBe(true);
+  });
+
   test('rejects a malformed package-lock structure', async () => {
     const cwd = await fixture();
     await writeFile(join(cwd, 'package-lock.json'), '{"version":"1.2.3","packages":{"":42}}\n');
