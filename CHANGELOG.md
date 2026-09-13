@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.0.5
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.4...v0.0.5)
+
+### 🩹 Fixes
+
+- **release:** Push to provider remotes before dual-host releases ([8366683](https://github.com/xcvzmoon/genbumppush/commit/8366683))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.4
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.3...v0.0.4)
