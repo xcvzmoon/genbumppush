@@ -353,6 +353,125 @@ describe('runRelease', () => {
     expect(git(remote, 'cat-file', '-t', 'refs/tags/v1.2.4')).toBe('tag');
   });
 
+  test('pushes the release tag to gitlab.remote before creating a dual-host GitLab release', async () => {
+    const cwd = await repository();
+    const origin = await mkdtemp(join(tmpdir(), 'genbumppush-origin-'));
+    const gitlab = await mkdtemp(join(tmpdir(), 'genbumppush-gitlab-'));
+    git(origin, 'init', '--bare');
+    git(gitlab, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', origin);
+    git(cwd, 'remote', 'add', 'gitlab', gitlab);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true }, gitlab: { enabled: true, project: 'group/project', remote: 'gitlab', tokenEnv: 'TEST_GITLAB_TOKEN' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable dual-host GitLab releases');
+
+    const originalFetch = globalThis.fetch;
+    process.env.TEST_GITLAB_TOKEN = 'secret';
+    const calls: string[] = [];
+    globalThis.fetch = (input, init) => {
+      const request = new Request(input, init);
+      calls.push(`${request.method} ${request.url}`);
+      return Promise.resolve(new Response('', { status: 201 }));
+    };
+
+    try {
+      const result = await runRelease({
+        cwd,
+        release: 'patch',
+        dryRun: false,
+        yes: true,
+        help: false,
+      });
+      expect(result).toMatchObject({
+        newVersion: '1.2.4',
+        tag: 'v1.2.4',
+        pushed: true,
+        gitlabReleaseCreated: true,
+      });
+      expect(git(origin, 'cat-file', '-t', 'refs/tags/v1.2.4')).toBe('tag');
+      expect(git(gitlab, 'cat-file', '-t', 'refs/tags/v1.2.4')).toBe('tag');
+      expect(git(gitlab, 'show', 'refs/heads/main:package.json')).toContain('"version":"1.2.4"');
+      expect(calls.some((call) => call.startsWith('POST ') && call.endsWith('/releases'))).toBe(
+        true,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.TEST_GITLAB_TOKEN;
+    }
+  });
+
+  test('rejects a missing gitlab.remote before creating a commit or tag', async () => {
+    const cwd = await repository();
+    const origin = await mkdtemp(join(tmpdir(), 'genbumppush-origin-'));
+    git(origin, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', origin);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true, requireUpstream: false }, gitlab: { enabled: true, project: 'group/project', remote: 'gitlab', tokenEnv: 'TEST_GITLAB_TOKEN' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: point at a missing GitLab remote');
+    const head = git(cwd, 'rev-parse', 'HEAD');
+    process.env.TEST_GITLAB_TOKEN = 'secret';
+
+    try {
+      await expect(
+        runRelease({ cwd, release: 'patch', dryRun: false, yes: true, help: false }),
+      ).rejects.toThrow('remote "gitlab", but that remote does not exist');
+      expect(git(cwd, 'rev-parse', 'HEAD')).toBe(head);
+      expect(git(cwd, 'tag', '--list', 'v1.2.4')).toBe('');
+      expect(() => git(origin, 'cat-file', '-t', 'refs/tags/v1.2.4')).toThrow();
+    } finally {
+      delete process.env.TEST_GITLAB_TOKEN;
+    }
+  });
+
+  test('checks gitlab.remote when retrying a GitLab release', async () => {
+    const cwd = await repository();
+    const origin = await mkdtemp(join(tmpdir(), 'genbumppush-origin-'));
+    const gitlab = await mkdtemp(join(tmpdir(), 'genbumppush-gitlab-'));
+    git(origin, 'init', '--bare');
+    git(gitlab, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', origin);
+    git(cwd, 'remote', 'add', 'gitlab', gitlab);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    git(cwd, 'push', 'gitlab', 'main');
+    git(cwd, 'push', 'gitlab', 'refs/tags/v1.2.3');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, gitlab: { enabled: true, project: 'group/project', remote: 'gitlab', tokenEnv: 'TEST_GITLAB_TOKEN' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: configure GitLab remote for retry');
+
+    const originalFetch = globalThis.fetch;
+    process.env.TEST_GITLAB_TOKEN = 'secret';
+    globalThis.fetch = () => Promise.resolve(new Response('', { status: 201 }));
+
+    try {
+      const result = await runRelease({
+        cwd,
+        gitlabRetryTag: 'v1.2.3',
+        dryRun: false,
+        yes: true,
+        help: false,
+      });
+      expect(result).toMatchObject({
+        tag: 'v1.2.3',
+        pushed: true,
+        gitlabReleaseCreated: true,
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.TEST_GITLAB_TOKEN;
+    }
+  });
+
   test('rejects GitHub releases without push before creating a commit or tag', async () => {
     const cwd = await repository();
     await writeFile(

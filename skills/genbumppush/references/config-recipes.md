@@ -14,25 +14,26 @@ Full option surface, defaults, and scenario templates for genbumppush.
 
 ## Defaults (as implemented)
 
-| Key                            | Default                            |
-| ------------------------------ | ---------------------------------- |
-| `release`                      | detected from commits (unless set) |
-| `preid`                        | `beta` (used only for pre* types)  |
-| `changelog`                    | `'CHANGELOG.md'`                   |
-| `excludeDependencyCommits`     | `true`                             |
-| `recursive`                    | `false`                            |
-| `files`                        | `['package.json']`                 |
-| `git.remote`                   | `'origin'`                         |
-| `git.push`                     | `true`                             |
-| `git.sign`                     | `false`                            |
-| `git.requireClean`             | `true`                             |
-| `git.requireUpstream`          | `true`                             |
-| `git.commitMessage`            | `'chore(release): v{{version}}'`   |
-| `git.tagName`                  | `'v{{version}}'`                   |
-| `git.tagMessage`               | `'v{{version}}'`                   |
-| `github.enabled`               | `false`                            |
-| `gitlab.enabled`               | `false`                            |
-| `hooks.before` / `hooks.after` | unset                              |
+| Key                               | Default                            |
+| --------------------------------- | ---------------------------------- |
+| `release`                         | detected from commits (unless set) |
+| `preid`                           | `beta` (used only for pre* types)  |
+| `changelog`                       | `'CHANGELOG.md'`                   |
+| `excludeDependencyCommits`        | `true`                             |
+| `recursive`                       | `false`                            |
+| `files`                           | `['package.json']`                 |
+| `git.remote`                      | `'origin'`                         |
+| `git.push`                        | `true`                             |
+| `git.sign`                        | `false`                            |
+| `git.requireClean`                | `true`                             |
+| `git.requireUpstream`             | `true`                             |
+| `git.commitMessage`               | `'chore(release): v{{version}}'`   |
+| `git.tagName`                     | `'v{{version}}'`                   |
+| `git.tagMessage`                  | `'v{{version}}'`                   |
+| `github.enabled`                  | `false`                            |
+| `gitlab.enabled`                  | `false`                            |
+| `github.remote` / `gitlab.remote` | unset (use `git.remote`)           |
+| `hooks.before` / `hooks.after`    | unset                              |
 
 `{{version}}` is replaced in `commitMessage`, `tagName`, `tagMessage`, and provider `releaseName`.
 
@@ -190,6 +191,24 @@ export default defineConfig({
 ```
 
 Project path is required (config or env). Without a token: clear error telling the user which env var to set.
+
+### Dual-host (GitHub origin + separate GitLab remote)
+
+GitLab Releases require the tag to already exist on the GitLab project. When `git.remote` is GitHub, set `gitlab.remote` so the branch and tag are pushed there before the API call:
+
+```ts
+export default defineConfig({
+  git: { push: true, remote: 'origin' },
+  github: { enabled: true },
+  gitlab: {
+    enabled: true,
+    project: 'group/project',
+    remote: 'gitlab',
+  },
+});
+```
+
+`github.remote` is the symmetric option when GitHub is not the primary remote. The extra remote must already exist; genbumppush fails fast before commit/tag if it is missing. Retry flags (`--retry-gitlab` / `--retry-github`) resolve the tag on the provider remote when one is configured.
 
 ## Hooks
 
