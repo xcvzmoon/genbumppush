@@ -131,6 +131,19 @@ export type GitLabOptions = {
    */
   project?: string;
   /**
+   * Git remote that points at the GitLab project.
+   *
+   * Set this in dual-host setups where `git.remote` (for example `origin`)
+   * is GitHub and GitLab is a separate remote. When the value differs from
+   * `git.remote`, genbumppush atomically pushes the release branch and tag
+   * to this remote before calling the GitLab release API. Leave unset when
+   * the primary remote already receives the tag (same remote, or a mirror
+   * that GitLab already has).
+   *
+   * @example `'gitlab'`
+   */
+  remote?: string;
+  /**
    * Exact environment variable name to read the token from.
    * When set, the usual fallback chain is skipped.
    * @example `'CI_JOB_TOKEN'`
@@ -168,6 +181,17 @@ export type GitHubOptions = {
    * @example `'xcvzmoon/genbumppush'`
    */
   repo?: string;
+  /**
+   * Git remote that points at the GitHub repository.
+   *
+   * Set this in dual-host setups where `git.remote` is not GitHub. When the
+   * value differs from `git.remote`, genbumppush atomically pushes the
+   * release branch and tag to this remote before calling the GitHub release
+   * API. Leave unset when the primary remote already receives the tag.
+   *
+   * @example `'github'`
+   */
+  remote?: string;
   /**
    * Exact environment variable name to read the token from.
    * When set, the usual fallback chain is skipped.

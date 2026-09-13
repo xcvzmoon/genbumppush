@@ -19,7 +19,7 @@ import { relative, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { loadReleaseConfig } from './config.ts';
 import { ReleaseError } from './error.ts';
-import { git, isGitRepository, remoteTagExists, runHook, tagExists } from './git.ts';
+import { git, isGitRepository, remoteExists, remoteTagExists, runHook, tagExists } from './git.ts';
 import {
   createGitHubRelease,
   githubTokenEnvLabel,
@@ -52,6 +52,28 @@ function isObject(value: unknown): value is object {
 
 function isString(value: unknown): value is string {
   return Object.prototype.toString.call(value) === '[object String]';
+}
+
+function requireRemote(
+  cwd: string,
+  remote: string,
+  code: 'GITLAB_RELEASE_FAILED' | 'GITHUB_RELEASE_FAILED',
+  provider: 'GitLab' | 'GitHub',
+): void {
+  if (remoteExists(cwd, remote)) return;
+  throw new ReleaseError(
+    code,
+    `${provider} release is configured with remote "${remote}", but that remote does not exist. Add it with: git remote add ${remote} <url>`,
+  );
+}
+
+function providerRemote(configured: string | undefined, primaryRemote: string): string | undefined {
+  if (configured === undefined || configured === primaryRemote) return undefined;
+  return configured;
+}
+
+function pushRelease(cwd: string, remote: string, branch: string, tag: string): void {
+  git(['push', '--atomic', remote, `HEAD:${branch}`, `refs/tags/${tag}`], cwd);
 }
 
 type GitLabContext = {
@@ -231,7 +253,7 @@ function packageVersion(cwd: string): string {
  * 2. Verify the worktree is a clean Git repo on a branch
  * 3. Detect (or force) a release type from Conventional Commits
  * 4. Confirm, run `before` hooks, update version files and the changelog
- * 5. Commit, tag, and atomically push branch + tag
+ * 5. Commit, tag, and atomically push branch + tag (plus provider remotes when set)
  * 6. Optionally create a GitHub/GitLab release, then run `after` hooks
  *
  * Version-file or commit failures restore files and the index. A failed tag
@@ -316,7 +338,8 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
   const currentVersion = packageVersion(cwd);
   if (options.gitlabRetryTag !== undefined) {
     const context = gitLabContext(config.gitlab);
-    const remote = config.git?.remote ?? 'origin';
+    const remote = config.gitlab?.remote ?? config.git?.remote ?? 'origin';
+    requireRemote(cwd, remote, 'GITLAB_RELEASE_FAILED', 'GitLab');
     if (!remoteTagExists(cwd, remote, options.gitlabRetryTag)) {
       throw new ReleaseError(
         'GITLAB_RELEASE_FAILED',
@@ -336,7 +359,8 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
 
   if (options.githubRetryTag !== undefined) {
     const context = await resolveGitHubContext(config.github, cwd);
-    const remote = config.git?.remote ?? 'origin';
+    const remote = config.github?.remote ?? config.git?.remote ?? 'origin';
+    requireRemote(cwd, remote, 'GITHUB_RELEASE_FAILED', 'GitHub');
     if (!remoteTagExists(cwd, remote, options.githubRetryTag)) {
       throw new ReleaseError(
         'GITHUB_RELEASE_FAILED',
@@ -396,6 +420,7 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
   }
 
   let gitlab: GitLabContext | undefined;
+  let gitlabRemote: string | undefined;
   if (config.gitlab?.enabled === true) {
     if (!push) {
       throw new ReleaseError(
@@ -404,9 +429,14 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
       );
     }
     gitlab = gitLabContext(config.gitlab);
+    gitlabRemote = providerRemote(config.gitlab.remote, config.git?.remote ?? 'origin');
+    if (gitlabRemote !== undefined) {
+      requireRemote(cwd, gitlabRemote, 'GITLAB_RELEASE_FAILED', 'GitLab');
+    }
   }
 
   let github: GitHubContext | undefined;
+  let githubRemote: string | undefined;
   if (config.github?.enabled === true) {
     if (!push) {
       throw new ReleaseError(
@@ -415,6 +445,10 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
       );
     }
     github = await resolveGitHubContext(config.github, cwd);
+    githubRemote = providerRemote(config.github.remote, config.git?.remote ?? 'origin');
+    if (githubRemote !== undefined) {
+      requireRemote(cwd, githubRemote, 'GITHUB_RELEASE_FAILED', 'GitHub');
+    }
   }
 
   if (!options.yes && !(await confirm(`Create a ${releaseType} release?`))) {
@@ -496,7 +530,28 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
 
   tagArgs.push(tag, '-m', render(config.git?.tagMessage ?? 'v{{version}}', version));
   git(tagArgs, cwd);
-  if (push) git(['push', '--atomic', remote, `HEAD:${branch}`, `refs/tags/${tag}`], cwd);
+
+  if (push) {
+    pushRelease(cwd, remote, branch, tag);
+
+    const extraRemotes = [
+      ...new Set(
+        [gitlabRemote, githubRemote].filter((value): value is string => value !== undefined),
+      ),
+    ];
+    for (const extraRemote of extraRemotes) {
+      try {
+        pushRelease(cwd, extraRemote, branch, tag);
+      } catch (error) {
+        const isGitLabRemote = extraRemote === gitlabRemote;
+        throw new ReleaseError(
+          isGitLabRemote ? 'RELEASE_PUBLISHED_GITLAB_FAILED' : 'RELEASE_PUBLISHED_GITHUB_FAILED',
+          `Git release ${tag} was pushed to ${remote}, but push to ${extraRemote} failed. Fix that remote, then run: git push --atomic ${extraRemote} HEAD:${branch} refs/tags/${tag}`,
+          { cause: error },
+        );
+      }
+    }
+  }
 
   let gitlabReleaseCreated = false;
   if (gitlab !== undefined) {
@@ -504,9 +559,13 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
       await publishGitLab(gitlab, cwd, config, tag, version);
       gitlabReleaseCreated = true;
     } catch (error) {
+      const dualHostHint =
+        config.gitlab?.remote === undefined
+          ? ' If GitLab is a separate remote from git.remote, set gitlab.remote so the tag is pushed there first.'
+          : '';
       throw new ReleaseError(
         'RELEASE_PUBLISHED_GITLAB_FAILED',
-        `Git release ${tag} was pushed, but GitLab release creation failed. Retry with: genbumppush --retry-gitlab ${tag}`,
+        `Git release ${tag} was pushed, but GitLab release creation failed.${dualHostHint} Retry with: genbumppush --retry-gitlab ${tag}`,
         { cause: error },
       );
     }

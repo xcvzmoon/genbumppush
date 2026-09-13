@@ -36,6 +36,15 @@ export function isGitRepository(cwd: string): boolean {
   return result.stdout.trim() === 'true';
 }
 
+export function remoteExists(cwd: string, remote: string): boolean {
+  return (
+    spawnSync('git', ['remote', 'get-url', remote], {
+      cwd,
+      stdio: 'ignore',
+    }).status === 0
+  );
+}
+
 export function remoteTagExists(cwd: string, remote: string, tag: string): boolean {
   return git(['ls-remote', '--tags', remote, `refs/tags/${tag}`], cwd).length > 0;
 }

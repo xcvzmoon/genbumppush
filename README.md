@@ -160,9 +160,11 @@ JSON has no comments and no `defineConfig` typing, so move to `genbumppush.confi
 | `github.enabled`           | boolean                   | `false`                        | Create a GitHub release after push      |
 | `github.host`              | string                    | `github.com`                   | github.com or GHES host                 |
 | `github.repo`              | string                    | env / remote                   | `owner/name`                            |
+| `github.remote`            | string                    | unset                          | Extra Git remote for dual-host GitHub   |
 | `github.tokenEnv`          | string                    | auto                           | Exact env var name (disables fallbacks) |
 | `github.releaseName`       | string                    | tag                            | Release title template                  |
 | `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push      |
+| `gitlab.remote`            | string                    | unset                          | Extra Git remote for dual-host GitLab   |
 
 `{{version}}` is replaced in commit and tag templates. Hooks run through the shell in the repository directory; only use trusted configuration.
 
@@ -291,6 +293,24 @@ Without `tokenEnv`, GitLab tokens resolve from `GENBUMPPUSH_GITLAB_TOKEN`, then 
 the matching `CHANGELOG.md` section as the release description. If `git.push` is false,
 the provider is rejected because GitLab cannot create a release for an unpublished tag.
 
+### Dual-host releases (GitHub + GitLab)
+
+GitLab's release API requires `tag_name` to already exist on that project. When `origin` is GitHub and GitLab is a separate remote, set `gitlab.remote` so genbumppush pushes the release branch and tag to GitLab before calling the API:
+
+```ts
+export default defineConfig({
+  git: { push: true, remote: 'origin' }, // origin → GitHub
+  github: { enabled: true },
+  gitlab: {
+    enabled: true,
+    project: 'group/project',
+    remote: 'gitlab', // git remote that points at the GitLab project
+  },
+});
+```
+
+`github.remote` works the same way when GitHub is not the primary remote. Provider remotes must already exist (`git remote add gitlab <url>`); genbumppush fails fast before commit/tag if a configured provider remote is missing. Leave `gitlab.remote` unset when the primary remote already receives the tag (same remote, or a mirror GitLab already has). `--retry-gitlab` / `--retry-github` check the provider remote when one is configured.
+
 ```yaml
 release:
   image: node:20
@@ -309,19 +329,20 @@ Keep artifact publication and GitLab release creation in protected, tag-triggere
 
 ## Scenario guide
 
-| Scenario               | Recommended setup                                  |
-| ---------------------- | -------------------------------------------------- |
-| Local release          | `npm run release`, confirm interactively           |
-| CI release             | `genbumppush --yes` with protected Git credentials |
-| Preview only           | `genbumppush --dry-run --yes`                      |
-| Local commit/tag only  | `genbumppush patch --no-push --yes`                |
-| Nuxt or Node package   | Default `package.json` adapter                     |
-| npm lockfile           | Add `package-lock.json` explicitly                 |
-| Fixed-version monorepo | `recursive: true`                                  |
-| Tauri                  | Explicit JSON, Cargo.toml, and Cargo.lock files    |
-| Custom VERSION file    | Add only if the old version occurs once            |
-| GitHub/npm publication | Push `v*`; let workflows publish                   |
-| GitLab release         | Run downstream jobs on `$CI_COMMIT_TAG`            |
+| Scenario                | Recommended setup                                   |
+| ----------------------- | --------------------------------------------------- |
+| Local release           | `npm run release`, confirm interactively            |
+| CI release              | `genbumppush --yes` with protected Git credentials  |
+| Preview only            | `genbumppush --dry-run --yes`                       |
+| Local commit/tag only   | `genbumppush patch --no-push --yes`                 |
+| Nuxt or Node package    | Default `package.json` adapter                      |
+| npm lockfile            | Add `package-lock.json` explicitly                  |
+| Fixed-version monorepo  | `recursive: true`                                   |
+| Tauri                   | Explicit JSON, Cargo.toml, and Cargo.lock files     |
+| Custom VERSION file     | Add only if the old version occurs once             |
+| GitHub/npm publication  | Push `v*`; let workflows publish                    |
+| GitLab release          | Run downstream jobs on `$CI_COMMIT_TAG`             |
+| Dual-host GitHub+GitLab | Set `gitlab.remote` (and `github.remote` if needed) |
 
 ## Troubleshooting
 

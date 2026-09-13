@@ -62,9 +62,10 @@ SemVer quirks implemented in `bumpVersion`:
 12. On failure during write/commit: restore files, restore changelog, `git read-tree` previous index, rethrow
 13. `git tag -a` (optional `-s`)
 14. `git push --atomic <remote> HEAD:<branch> refs/tags/<tag>` if push
-15. Optional GitHub/GitLab release API
-16. Run `hooks.after`
-17. Return `ReleaseResult`
+15. Extra atomic pushes to `gitlab.remote` / `github.remote` when those differ from `git.remote`
+16. Optional GitHub/GitLab release API
+17. Run `hooks.after`
+18. Return `ReleaseResult`
 
 ## Error codes and recovery
 
@@ -124,7 +125,9 @@ genbumppush --retry-github v1.2.3
 genbumppush --retry-gitlab v1.2.3
 ```
 
-Retry requires the tag to exist on the configured remote and the provider `enabled: true` with token/project/repo available.
+Retry requires the tag to exist on the configured remote (`gitlab.remote` / `github.remote` when set, otherwise `git.remote`) and the provider `enabled: true` with token/project/repo available.
+
+In dual-host setups, configure `gitlab.remote` (for example `'gitlab'`) so the release tag is pushed to GitLab before the release API is called. GitLab's API returns `404 Tag Not Found` when the tag is only on `origin`.
 
 ### Version mismatch before any write
 
