@@ -109,7 +109,8 @@ export type HookOptions = {
  * Optional GitLab release creation after a successful Git push.
  *
  * Credentials come from the environment (`GENBUMPPUSH_GITLAB_TOKEN` or
- * `GITLAB_TOKEN`). Never put the token itself in this object.
+ * `GITLAB_TOKEN`), or from an authenticated `glab` CLI when no env token is
+ * set and `tokenEnv` is unset. Never put the token itself in this object.
  */
 export type GitLabOptions = {
   /**
@@ -145,7 +146,7 @@ export type GitLabOptions = {
   remote?: string;
   /**
    * Exact environment variable name to read the token from.
-   * When set, the usual fallback chain is skipped.
+   * When set, the env fallback chain and `glab` CLI are skipped.
    * @example `'CI_JOB_TOKEN'`
    */
   tokenEnv?: string;
@@ -160,7 +161,9 @@ export type GitLabOptions = {
  * Optional GitHub (or GitHub Enterprise Server) release after a successful Git push.
  *
  * Credentials come from the environment (`GENBUMPPUSH_GITHUB_TOKEN`,
- * `GITHUB_TOKEN`, or `GH_TOKEN`). Never put the token itself in this object.
+ * `GITHUB_TOKEN`, or `GH_TOKEN`), or from an authenticated `gh` CLI when no
+ * env token is set and `tokenEnv` is unset. Never put the token itself in
+ * this object.
  */
 export type GitHubOptions = {
   /**
@@ -194,7 +197,7 @@ export type GitHubOptions = {
   remote?: string;
   /**
    * Exact environment variable name to read the token from.
-   * When set, the usual fallback chain is skipped.
+   * When set, the env fallback chain and `gh` CLI are skipped.
    */
   tokenEnv?: string;
   /**

@@ -45,7 +45,8 @@ describe('GitLab provider', () => {
       delete process.env.GITLAB_PROJECT;
       delete process.env.CUSTOM_GITLAB_TOKEN;
 
-      expect(resolveGitLabToken()).toBeUndefined();
+      // tokenEnv set but empty never falls through to the CLI.
+      expect(resolveGitLabToken('MISSING_ENV')).toBeUndefined();
       expect(resolveGitLabHost()).toBe('https://gitlab.com');
       expect(resolveGitLabProject()).toBeUndefined();
 
@@ -65,7 +66,6 @@ describe('GitLab provider', () => {
 
       process.env.CUSTOM_GITLAB_TOKEN = 'custom';
       expect(resolveGitLabToken('CUSTOM_GITLAB_TOKEN')).toBe('custom');
-      expect(resolveGitLabToken('MISSING_ENV')).toBeUndefined();
     } finally {
       restoreEnv('GENBUMPPUSH_GITLAB_TOKEN', originals.genToken);
       restoreEnv('GITLAB_TOKEN', originals.token);

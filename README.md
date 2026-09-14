@@ -183,7 +183,16 @@ Preferred names use the `GENBUMPPUSH_` prefix. Legacy provider variables still w
 | GitLab host       | `GENBUMPPUSH_GITLAB_HOST`       | `GITLAB_HOST`                                           |
 | GitLab project    | `GENBUMPPUSH_GITLAB_PROJECT`    | `GITLAB_PROJECT`                                        |
 
-When `tokenEnv` is set in config, only that exact variable name is read; the fallback chain is skipped. Leave `tokenEnv` unset to use the preferred/fallback chain above.
+When `tokenEnv` is set in config, only that exact variable name is read; the fallback chain and CLI are skipped. Leave `tokenEnv` unset to use the preferred/fallback chain above.
+
+When no env token is set and `tokenEnv` is unset, genbumppush falls back to an already-authenticated provider CLI:
+
+| Provider | CLI token source                             |
+| -------- | -------------------------------------------- |
+| GitHub   | `gh auth token` (pass `--hostname` for GHES) |
+| GitLab   | `glab auth status --show-token`              |
+
+If neither an env token nor an authenticated CLI is available, the release fails **before** any commit, tag, or push. Env tokens always win over the CLI so CI stays deterministic.
 
 ```bash
 # .env (do not commit)

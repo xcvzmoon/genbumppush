@@ -143,7 +143,8 @@ describe('GitHub provider', () => {
       delete process.env.GH_TOKEN;
       delete process.env.CHANGELOGEN_TOKENS_GITHUB;
       delete process.env.CUSTOM_GITHUB_TOKEN;
-      expect(resolveGitHubToken()).toBeUndefined();
+      // tokenEnv set but empty never falls through to the CLI.
+      expect(resolveGitHubToken('MISSING_ENV')).toBeUndefined();
 
       process.env.CHANGELOGEN_TOKENS_GITHUB = 'from-changelogen';
       expect(resolveGitHubToken()).toBe('from-changelogen');
@@ -159,7 +160,6 @@ describe('GitHub provider', () => {
 
       process.env.CUSTOM_GITHUB_TOKEN = 'custom';
       expect(resolveGitHubToken('CUSTOM_GITHUB_TOKEN')).toBe('custom');
-      expect(resolveGitHubToken('MISSING_ENV')).toBeUndefined();
     } finally {
       restoreEnv('GENBUMPPUSH_GITHUB_TOKEN', originals.genbumppush);
       restoreEnv('GITHUB_TOKEN', originals.github);

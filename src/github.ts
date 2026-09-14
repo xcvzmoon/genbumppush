@@ -1,4 +1,5 @@
 import { resolveRepoConfig } from 'changelogen';
+import { getGitHubCliToken } from './auth-cli.ts';
 import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 
@@ -46,11 +47,26 @@ export function githubTokenEnvLabel(tokenEnv?: string): string {
   return tokenEnv ?? `${ENV.GITHUB_TOKEN} (or GITHUB_TOKEN, GH_TOKEN, CHANGELOGEN_TOKENS_GITHUB)`;
 }
 
-export function resolveGitHubToken(tokenEnv?: string): string | undefined {
+export function githubTokenHelp(tokenEnv?: string): string {
+  if (tokenEnv !== undefined) {
+    return `Set ${tokenEnv} to create a GitHub release.`;
+  }
+  return `Set ${githubTokenEnvLabel()} or authenticate GitHub CLI (gh auth login) to create a GitHub release.`;
+}
+
+/**
+ * Resolve a GitHub API token.
+ *
+ * Priority: explicit `tokenEnv` only → env fallback chain → `gh auth token`.
+ * Explicit `tokenEnv` never falls through to the CLI so CI can pin one variable.
+ */
+export function resolveGitHubToken(tokenEnv?: string, host?: string): string | undefined {
   if (tokenEnv !== undefined) {
     return readEnv(tokenEnv);
   }
-  return readEnvFirst(...GITHUB_TOKEN_FALLBACKS);
+  const fromEnv = readEnvFirst(...GITHUB_TOKEN_FALLBACKS);
+  if (fromEnv !== undefined) return fromEnv;
+  return getGitHubCliToken(host);
 }
 
 export async function resolveGitHubRepo(
