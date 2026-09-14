@@ -1,5 +1,5 @@
 import type { GenBumpPushConfig } from './types.ts';
-import { createDefineConfig, loadConfig, setupDotenv } from 'c12';
+import { loadConfig, setupDotenv } from 'c12';
 
 /**
  * Identity helper that types a release config for your editor.
@@ -7,7 +7,10 @@ import { createDefineConfig, loadConfig, setupDotenv } from 'c12';
  * It does not change the object at runtime — it only enables autocomplete
  * and catches typos inside `defineConfig({ … })`.
  *
- * @typeParam Config - Config object shape; defaults to {@link GenBumpPushConfig}.
+ * The return type is intentionally {@link GenBumpPushConfig} (not c12’s
+ * `InputConfig`), so consumer `declaration` emit stays portable under pnpm
+ * even when `c12` is not hoisted to the project root.
+ *
  * @returns The same object you passed in.
  *
  * @example `genbumppush.config.ts`
@@ -26,7 +29,9 @@ import { createDefineConfig, loadConfig, setupDotenv } from 'c12';
  * });
  * ```
  */
-export const defineConfig = createDefineConfig<GenBumpPushConfig>();
+export function defineConfig(config: GenBumpPushConfig): GenBumpPushConfig {
+  return config;
+}
 
 /**
  * Built-in defaults used when neither the CLI, a config file, nor

@@ -18,8 +18,14 @@
     "dist"
   ],
   "exports": {
-    ".": "./dist/index.mjs",
-    "./bin": "./dist/bin.mjs",
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./bin": {
+      "types": "./dist/bin.d.mts",
+      "import": "./dist/bin.mjs"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
