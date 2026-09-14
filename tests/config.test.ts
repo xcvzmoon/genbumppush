@@ -1,8 +1,9 @@
+import type { GenBumpPushConfig } from '../src/types.ts';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, test } from 'vite-plus/test';
-import { loadReleaseConfig } from '../src/config.ts';
+import { afterEach, describe, expect, expectTypeOf, test } from 'vite-plus/test';
+import { defineConfig, loadReleaseConfig } from '../src/config.ts';
 
 const dotenvKeys = [
   'GENBUMPPUSH_GITHUB_TOKEN',
@@ -12,6 +13,21 @@ const dotenvKeys = [
 
 afterEach(() => {
   for (const key of dotenvKeys) Reflect.deleteProperty(process.env, key);
+});
+
+describe('defineConfig', () => {
+  test('returns the same object typed as GenBumpPushConfig', () => {
+    const input = {
+      release: 'patch',
+      hooks: { before: ['pnpm check'] },
+      github: { enabled: true },
+    } as const satisfies GenBumpPushConfig;
+
+    const result = defineConfig(input);
+
+    expect(result).toBe(input);
+    expectTypeOf(result).toEqualTypeOf<GenBumpPushConfig>();
+  });
 });
 
 describe('loadReleaseConfig', () => {
