@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.0.6
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.5...v0.0.6)
+
+### 🚀 Enhancements
+
+- **auth:** Fall back to gh/glab CLI tokens for local releases ([9d251d3](https://github.com/xcvzmoon/genbumppush/commit/9d251d3))
+
+### 🩹 Fixes
+
+- **config:** Keep defineConfig types free of c12 for pnpm consumers ([1865946](https://github.com/xcvzmoon/genbumppush/commit/1865946))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.5
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.4...v0.0.5)
