@@ -1,3 +1,4 @@
+import { getGitLabCliToken } from './auth-cli.ts';
 import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 
@@ -16,11 +17,26 @@ export function gitLabTokenEnvLabel(tokenEnv?: string): string {
   return tokenEnv ?? `${ENV.GITLAB_TOKEN} (or GITLAB_TOKEN)`;
 }
 
-export function resolveGitLabToken(tokenEnv?: string): string | undefined {
+export function gitLabTokenHelp(tokenEnv?: string): string {
+  if (tokenEnv !== undefined) {
+    return `Set ${tokenEnv} to create a GitLab release.`;
+  }
+  return `Set ${gitLabTokenEnvLabel()} or authenticate GitLab CLI (glab auth login) to create a GitLab release.`;
+}
+
+/**
+ * Resolve a GitLab API token.
+ *
+ * Priority: explicit `tokenEnv` only → env fallback chain → `glab auth status --show-token`.
+ * Explicit `tokenEnv` never falls through to the CLI so CI can pin one variable.
+ */
+export function resolveGitLabToken(tokenEnv?: string, host?: string): string | undefined {
   if (tokenEnv !== undefined) {
     return readEnv(tokenEnv);
   }
-  return readEnvFirst(...GITLAB_TOKEN_FALLBACKS);
+  const fromEnv = readEnvFirst(...GITLAB_TOKEN_FALLBACKS);
+  if (fromEnv !== undefined) return fromEnv;
+  return getGitLabCliToken(host);
 }
 
 export function resolveGitLabHost(host?: string): string {

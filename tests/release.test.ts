@@ -583,4 +583,140 @@ describe('runRelease', () => {
     expect(git(cwd, 'rev-parse', 'HEAD')).toBe(head);
     expect(git(cwd, 'tag', '--list', 'v1.2.4')).toBe('');
   });
+
+  test('rejects a release when no env token and no GitHub CLI are available', async () => {
+    const cwd = await repository();
+    // Keep system dirs so git still works, but omit homebrew/custom bins where gh lives.
+    const restrictedPath = '/usr/bin:/bin';
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true, requireUpstream: false }, github: { enabled: true, repo: 'group/project' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+    const head = git(cwd, 'rev-parse', 'HEAD');
+
+    const originals = {
+      path: process.env.PATH,
+      gen: process.env.GENBUMPPUSH_GITHUB_TOKEN,
+      github: process.env.GITHUB_TOKEN,
+      gh: process.env.GH_TOKEN,
+      changelogen: process.env.CHANGELOGEN_TOKENS_GITHUB,
+    };
+    try {
+      process.env.PATH = restrictedPath;
+      delete process.env.GENBUMPPUSH_GITHUB_TOKEN;
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.GH_TOKEN;
+      delete process.env.CHANGELOGEN_TOKENS_GITHUB;
+
+      await expect(
+        runRelease({ cwd, release: 'patch', dryRun: false, yes: true, help: false }),
+      ).rejects.toThrow('gh auth login');
+      expect(git(cwd, 'rev-parse', 'HEAD')).toBe(head);
+      expect(git(cwd, 'tag', '--list', 'v1.2.4')).toBe('');
+    } finally {
+      if (originals.path === undefined) Reflect.deleteProperty(process.env, 'PATH');
+      else process.env.PATH = originals.path;
+      if (originals.gen === undefined) {
+        Reflect.deleteProperty(process.env, 'GENBUMPPUSH_GITHUB_TOKEN');
+      } else {
+        process.env.GENBUMPPUSH_GITHUB_TOKEN = originals.gen;
+      }
+      if (originals.github === undefined) Reflect.deleteProperty(process.env, 'GITHUB_TOKEN');
+      else process.env.GITHUB_TOKEN = originals.github;
+      if (originals.gh === undefined) Reflect.deleteProperty(process.env, 'GH_TOKEN');
+      else process.env.GH_TOKEN = originals.gh;
+      if (originals.changelogen === undefined) {
+        Reflect.deleteProperty(process.env, 'CHANGELOGEN_TOKENS_GITHUB');
+      } else {
+        process.env.CHANGELOGEN_TOKENS_GITHUB = originals.changelogen;
+      }
+    }
+  });
+
+  test('uses gh CLI token when no env token is set', async () => {
+    const cwd = await repository();
+    const remote = await mkdtemp(join(tmpdir(), 'genbumppush-remote-'));
+    git(remote, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', remote);
+    git(cwd, 'push', '-u', 'origin', 'main');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { changelog: false, git: { push: true }, github: { enabled: true, repo: 'group/project' } };\n",
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: enable GitHub releases');
+
+    const bin = await mkdtemp(join(tmpdir(), 'genbumppush-gh-'));
+    const ghPath = join(bin, 'gh');
+    await writeFile(ghPath, "#!/bin/sh\nprintf '%s\\n' 'gho_from-cli'\n", { mode: 0o755 });
+
+    const originalFetch = globalThis.fetch;
+    const originals = {
+      path: process.env.PATH,
+      gen: process.env.GENBUMPPUSH_GITHUB_TOKEN,
+      github: process.env.GITHUB_TOKEN,
+      gh: process.env.GH_TOKEN,
+      changelogen: process.env.CHANGELOGEN_TOKENS_GITHUB,
+    };
+    const calls: { method: string; url: string; authorization: string | null }[] = [];
+    globalThis.fetch = (input, init) => {
+      const request = new Request(input, init);
+      calls.push({
+        method: request.method,
+        url: request.url,
+        authorization: request.headers.get('authorization'),
+      });
+      if (request.method === 'GET') {
+        return Promise.resolve(new Response('Not Found', { status: 404 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ id: 9 }), { status: 201 }));
+    };
+
+    try {
+      process.env.PATH = `${bin}:${originals.path ?? ''}`;
+      delete process.env.GENBUMPPUSH_GITHUB_TOKEN;
+      delete process.env.GITHUB_TOKEN;
+      delete process.env.GH_TOKEN;
+      delete process.env.CHANGELOGEN_TOKENS_GITHUB;
+
+      const result = await runRelease({
+        cwd,
+        release: 'patch',
+        dryRun: false,
+        yes: true,
+        help: false,
+      });
+      expect(result).toMatchObject({
+        newVersion: '1.2.4',
+        tag: 'v1.2.4',
+        pushed: true,
+        githubReleaseCreated: true,
+      });
+      expect(
+        calls.some(
+          (call) => call.method === 'POST' && call.authorization === 'Bearer gho_from-cli',
+        ),
+      ).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originals.path === undefined) Reflect.deleteProperty(process.env, 'PATH');
+      else process.env.PATH = originals.path;
+      if (originals.gen === undefined) {
+        Reflect.deleteProperty(process.env, 'GENBUMPPUSH_GITHUB_TOKEN');
+      } else {
+        process.env.GENBUMPPUSH_GITHUB_TOKEN = originals.gen;
+      }
+      if (originals.github === undefined) Reflect.deleteProperty(process.env, 'GITHUB_TOKEN');
+      else process.env.GITHUB_TOKEN = originals.github;
+      if (originals.gh === undefined) Reflect.deleteProperty(process.env, 'GH_TOKEN');
+      else process.env.GH_TOKEN = originals.gh;
+      if (originals.changelogen === undefined) {
+        Reflect.deleteProperty(process.env, 'CHANGELOGEN_TOKENS_GITHUB');
+      } else {
+        process.env.CHANGELOGEN_TOKENS_GITHUB = originals.changelogen;
+      }
+    }
+  });
 });

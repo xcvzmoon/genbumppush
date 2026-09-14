@@ -22,13 +22,13 @@ import { ReleaseError } from './error.ts';
 import { git, isGitRepository, remoteExists, remoteTagExists, runHook, tagExists } from './git.ts';
 import {
   createGitHubRelease,
-  githubTokenEnvLabel,
+  githubTokenHelp,
   resolveGitHubRepo,
   resolveGitHubToken,
 } from './github.ts';
 import {
   createGitLabRelease,
-  gitLabTokenEnvLabel,
+  gitLabTokenHelp,
   releaseNotes,
   resolveGitLabHost,
   resolveGitLabProject,
@@ -88,13 +88,11 @@ function gitLabContext(config: GitLabOptions | undefined): GitLabContext {
     throw new ReleaseError('GITLAB_RELEASE_FAILED', 'Enable gitlab before creating a release.');
   }
 
-  const token = resolveGitLabToken(config.tokenEnv);
+  const host = resolveGitLabHost(config.host);
+  const token = resolveGitLabToken(config.tokenEnv, host);
   const project = resolveGitLabProject(config.project);
   if (token === undefined) {
-    throw new ReleaseError(
-      'GITLAB_RELEASE_FAILED',
-      `Set ${gitLabTokenEnvLabel(config.tokenEnv)} to create a GitLab release.`,
-    );
+    throw new ReleaseError('GITLAB_RELEASE_FAILED', gitLabTokenHelp(config.tokenEnv));
   }
   if (project === undefined) {
     throw new ReleaseError(
@@ -104,7 +102,7 @@ function gitLabContext(config: GitLabOptions | undefined): GitLabContext {
   }
 
   const context: GitLabContext = {
-    host: resolveGitLabHost(config.host),
+    host,
     project,
     token,
   };
@@ -119,7 +117,7 @@ type GitHubContext = {
   releaseName?: string;
 };
 
-function resolveGitHubContext(
+async function resolveGitHubContext(
   config: GitHubOptions | undefined,
   cwd: string,
 ): Promise<GitHubContext> {
@@ -127,22 +125,18 @@ function resolveGitHubContext(
     throw new ReleaseError('GITHUB_RELEASE_FAILED', 'Enable github before creating a release.');
   }
 
-  const token = resolveGitHubToken(config.tokenEnv);
-  if (token === undefined) {
-    throw new ReleaseError(
-      'GITHUB_RELEASE_FAILED',
-      `Set ${githubTokenEnvLabel(config.tokenEnv)} to create a GitHub release.`,
-    );
-  }
-
-  return resolveGitHubRepo(cwd, {
+  const { host, repo } = await resolveGitHubRepo(cwd, {
     host: config.host,
     repo: config.repo,
-  }).then(({ host, repo }) => {
-    const context: GitHubContext = { host, repo, token };
-    if (config.releaseName !== undefined) context.releaseName = config.releaseName;
-    return context;
   });
+  const token = resolveGitHubToken(config.tokenEnv, host);
+  if (token === undefined) {
+    throw new ReleaseError('GITHUB_RELEASE_FAILED', githubTokenHelp(config.tokenEnv));
+  }
+
+  const context: GitHubContext = { host, repo, token };
+  if (config.releaseName !== undefined) context.releaseName = config.releaseName;
+  return context;
 }
 
 async function changelogText(cwd: string, config: GenBumpPushConfig): Promise<string> {
