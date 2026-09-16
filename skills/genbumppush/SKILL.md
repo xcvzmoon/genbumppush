@@ -14,6 +14,7 @@ description: Expert guidance for genbumppush — Conventional Commits release to
 - Do not force-overwrite a published tag. Fix the release commit or use the retry flags instead.
 - Hooks run arbitrary shell in the repo directory — only wire trusted commands.
 - Version-file and commit-preparation failures roll back files and the index. A failed tag or network push leaves the release commit local for inspection.
+- **Never format the changelog.** If the project uses oxfmt, Prettier, Biome, dprint, or any other formatter, `CHANGELOG.md` (and any custom `changelog` path) must always be excluded. Do not run formatters on it, do not include it in format-on-save, and do not "fix" its whitespace. Changelog content is machine-written (changelogen) and version-section extraction depends on its structure; formatting rewrites create noisy release diffs and can break GitLab release notes parsing.
 
 ## Instructions
 
@@ -67,7 +68,16 @@ export default defineConfig({
 
 3. Resolution order: CLI flags → C12 config file → `package.json` `"genbumppush"` → defaults. A flag such as `--no-push` always wins.
 4. Node engine: `>=20.19.0`.
-5. For monorepo, Tauri, Cargo, or custom version files, read `references/config-recipes.md` before guessing adapters.
+5. **Exclude the changelog from formatters.** If the project runs oxfmt (`vp fmt` / `vp check`), Prettier, Biome, dprint, or format-on-save, add the configured changelog path to that tool's ignore list before any release run. Examples:
+
+   - Vite+ / oxfmt: `fmt.ignorePatterns: ['CHANGELOG.md']` in `vite.config.ts`
+   - Prettier: `CHANGELOG.md` in `.prettierignore`
+   - Biome: include the path under `files.ignore` / `formatter.ignore` in `biome.json`
+   - Editor: disable format-on-save for that file if the formatter cannot ignore it
+
+   Apply the same ignore to a custom `changelog` path (not only the default `CHANGELOG.md`). Never hand-format or auto-format the generated file after a release.
+
+6. For monorepo, Tauri, Cargo, or custom version files, read `references/config-recipes.md` before guessing adapters.
 
 ### Step 3: Run a release
 
@@ -176,6 +186,7 @@ Architecture detail: `references/library-development.md`.
 ## Troubleshooting
 
 - **Skill should not fire for unrelated release tools** (semantic-release, release-it, standard-version) unless the user also mentions genbumppush.
+- **CHANGELOG.md keeps getting reformatted**: a formatter is still touching it. Add `CHANGELOG.md` (or the custom changelog path) to the project's formatter ignore (`fmt.ignorePatterns` for oxfmt/Vite+, `.prettierignore` for Prettier, Biome/dprint ignore, editor exclude). Do not revert formatting by hand — fix the ignore so `vp check` / format-on-save leave the file alone.
 - **Config not picked up**: C12 name is `genbumppush` — file must be `genbumppush.config.{ts,js,mjs,...}` or package.json key `"genbumppush"`. Use `--config` for a custom path.
 - **`chore(deps)` ignored**: default `excludeDependencyCommits: true`.
 - **Independent-version packages in a monorepo**: genbumppush assumes one shared version when `recursive: true`. Point the user at a multi-package strategy (per-package release scripts) instead of forcing `recursive`.

@@ -37,6 +37,20 @@ Full option surface, defaults, and scenario templates for genbumppush.
 
 `{{version}}` is replaced in `commitMessage`, `tagName`, `tagMessage`, and provider `releaseName`.
 
+## Formatter ignore (required)
+
+`changelog` output is machine-written. If the project uses oxfmt (`vp fmt` / `vp check`), Prettier, Biome, dprint, or editor format-on-save, **always exclude the changelog path** so formatters never rewrite it:
+
+| Tool          | Ignore location                                            |
+| ------------- | ---------------------------------------------------------- |
+| Vite+ / oxfmt | `fmt.ignorePatterns: ['CHANGELOG.md']` in `vite.config.ts` |
+| Prettier      | `CHANGELOG.md` in `.prettierignore`                        |
+| Biome         | `files.ignore` / `formatter.ignore` in `biome.json`        |
+| dprint        | `excludes` in `dprint.json`                                |
+| Editor format | exclude the file or disable format-on-save for it          |
+
+Use the actual `changelog` value (default `CHANGELOG.md`, or a custom path). Do not run formatters on the generated file after a release.
+
 ## Minimal / package / monorepo / Tauri
 
 ### Minimal npm package

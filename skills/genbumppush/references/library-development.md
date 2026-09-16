@@ -17,6 +17,8 @@ vp env doctor # if setup looks wrong
 
 Scripts in package.json map `build`/`dev`/`test`/`check` onto `vp`. Prefer `vp` over assuming global `npm test` alone; honor `devEngines.packageManager`.
 
+**CHANGELOG.md must stay out of formatters.** `vp check` runs oxfmt; if a root `CHANGELOG.md` (or custom changelog path) exists, add it to `fmt.ignorePatterns` in `vite.config.ts` (e.g. `ignorePatterns: ['CHANGELOG.md']`) and never format that file by hand or via editor format-on-save. Release notes are generated; reformatting only creates noisy diffs and can break section extraction.
+
 ## Module map
 
 | File                   | Role                                                         |
