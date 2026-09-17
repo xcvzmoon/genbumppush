@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.0.7
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.6...v0.0.7)
+
+### 🚀 Enhancements
+
+- **docker:** Add Docker image tagging and retry support ([88647a0](https://github.com/xcvzmoon/genbumppush/commit/88647a0))
+
+### 📖 Documentation
+
+- **docker:** Document image tagging and recovery ([0801c15](https://github.com/xcvzmoon/genbumppush/commit/0801c15))
+
+### 🏡 Chore
+
+- **skill:** Always ignore changelog when formatting ([6e36b3e](https://github.com/xcvzmoon/genbumppush/commit/6e36b3e))
+
+### ✅ Tests
+
+- **docker:** Cover image planning and release integration ([54d8fd8](https://github.com/xcvzmoon/genbumppush/commit/54d8fd8))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.6
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.5...v0.0.6)
