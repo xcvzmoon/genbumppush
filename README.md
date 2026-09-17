@@ -61,8 +61,10 @@ genbumppush --retry-gitlab v1.2.4                           # retry provider rel
 | `--preid <id>`         | Identifier containing letters, numbers, and hyphens      |
 | `--retry-gitlab <tag>` | Retry GitLab release creation for an existing remote tag |
 | `--retry-github <tag>` | Retry GitHub release creation for an existing remote tag |
+| `--retry-docker <tag>` | Retry Docker publication for an existing remote tag      |
 | `--dry-run`            | Preview without changing files, Git, or remotes          |
 | `--no-push`            | Keep commit and tag local                                |
+| `--no-docker`          | Disable configured Docker tagging for this invocation    |
 | `--yes`, `-y`          | Skip confirmation                                        |
 | `--help`, `-h`         | Print help                                               |
 
@@ -110,6 +112,12 @@ export default defineConfig({
     before: ['vp check', 'vp test'],
     after: 'echo Release complete',
   },
+  // docker: {
+  //   enabled: true,
+  //   source: 'ghcr.io/acme/app-build:{{version}}',
+  //   image: 'ghcr.io/acme/app',
+  //   tags: ['{{version}}', '{{tag}}'],
+  // },
 });
 ```
 
@@ -165,8 +173,14 @@ JSON has no comments and no `defineConfig` typing, so move to `genbumppush.confi
 | `github.releaseName`       | string                    | tag                            | Release title template                  |
 | `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push      |
 | `gitlab.remote`            | string                    | unset                          | Extra Git remote for dual-host GitLab   |
+| `docker.enabled`           | boolean                   | `false`                        | Tag an existing image during release    |
+| `docker.source`            | string                    | required                       | Existing local source image             |
+| `docker.image`             | string                    | required                       | Destination repository without a tag    |
+| `docker.tags`              | string[]                  | `['{{version}}']`              | Destination tag templates               |
+| `docker.push`              | boolean                   | `true`                         | Push tags to the image registry         |
+| `docker.allowMutableTags`  | boolean                   | `false`                        | Permit the mutable `latest` tag         |
 
-`{{version}}` is replaced in commit and tag templates. Hooks run through the shell in the repository directory; only use trusted configuration.
+`{{version}}` is replaced in release templates. Docker templates also support `{{tag}}`, which resolves to the Git tag. Hooks run through the shell in the repository directory; only use trusted configuration.
 
 ## Environment variables and `.env`
 
@@ -264,6 +278,29 @@ git push origin main v0.0.1
 ```
 
 For npm trusted publishing, configure the npm package trusted publisher to match the repository/workflow, keep `id-token: write`, and use a current npm. The included workflow enables provenance for public repositories. Private source repositories should set `NPM_CONFIG_PROVENANCE=false` because npm rejects private-source provenance bundles.
+
+## Docker image tagging
+
+Docker support is opt-in and operates on an image that has already been built locally. genbumppush never receives registry credentials and does not build images; authenticate with `docker login` or your CI credential helper before the release.
+
+```ts
+export default defineConfig({
+  git: { push: true },
+  docker: {
+    enabled: true,
+    source: 'ghcr.io/acme/app-build:{{version}}',
+    image: 'ghcr.io/acme/app',
+    tags: ['{{version}}', '{{tag}}', 'latest'],
+    allowMutableTags: true,
+  },
+});
+```
+
+Before changing release files, genbumppush verifies the source image, resolves its content digest, and rejects destination tags that point to a different local image. After the Git release is pushed, it creates and pushes every configured Docker tag. `latest` is rejected unless `allowMutableTags` is explicitly enabled.
+
+For immutable release tags, enable tag immutability in the destination registry. Registry policy is the authoritative protection against another client replacing an existing remote tag.
+
+Dry runs return the planned image references without requiring Docker. Set `docker.push: false` for local-only tagging; registry publication requires `git.push` to remain enabled. If registry publication fails after Git succeeds, authenticate or repair the registry and run `genbumppush --retry-docker <tag>`. Retries verify that the Git tag exists on the configured Git remote.
 
 ## GitHub and GitLab releases
 

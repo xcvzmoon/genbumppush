@@ -105,6 +105,22 @@ export type HookOptions = {
   after?: string | string[];
 };
 
+/** Optional Docker tagging and publication for an already-built image. */
+export type DockerOptions = {
+  /** Enable Docker image tagging for releases. @defaultValue false */
+  enabled?: boolean;
+  /** Existing local image reference. Supports `{{version}}` and `{{tag}}`. */
+  source?: string;
+  /** Destination image repository without a tag. Supports release templates. */
+  image?: string;
+  /** Destination tags. @defaultValue `['{{version}}']` */
+  tags?: string[];
+  /** Push created tags to their registry. @defaultValue true */
+  push?: boolean;
+  /** Explicitly allow the mutable `latest` tag. @defaultValue false */
+  allowMutableTags?: boolean;
+};
+
 /**
  * Optional GitLab release creation after a successful Git push.
  *
@@ -289,6 +305,8 @@ export type GenBumpPushConfig = {
   gitlab?: GitLabOptions;
   /** Optional GitHub release after push. See {@link GitHubOptions}. */
   github?: GitHubOptions;
+  /** Optional Docker image tagging after the Git release is created. */
+  docker?: DockerOptions;
   /** Shell commands run before and after the release. See {@link HookOptions}. */
   hooks?: HookOptions;
 };
@@ -322,6 +340,8 @@ export type CliOptions = {
   gitlabRetryTag?: string;
   /** Retry only GitHub release creation for a tag that already exists on the remote. */
   githubRetryTag?: string;
+  /** Retry only Docker publication for a tag that already exists on the remote. */
+  dockerRetryTag?: string;
   /** Force a release type; otherwise it is detected from commits (or config). */
   release?: ReleaseType;
   /** Prerelease identifier; overrides the value from config when set. */
@@ -330,6 +350,8 @@ export type CliOptions = {
   dryRun: boolean;
   /** `false` keeps the commit and tag local. Unset means “use config”. */
   push?: boolean;
+  /** `false` disables configured Docker tagging for this invocation. */
+  docker?: boolean;
   /** Skip the interactive `Create a … release?` confirmation. */
   yes: boolean;
   /** Print CLI help and exit without running a release. */
@@ -373,4 +395,12 @@ export type ReleaseResult = {
   gitlabReleaseCreated?: boolean;
   /** `true` when a GitHub release was created after the Git push. */
   githubReleaseCreated?: boolean;
+  /** `true` when all configured Docker tags were created and optionally pushed. */
+  dockerImagePublished?: boolean;
+  /** Destination Docker image repository. */
+  dockerImage?: string;
+  /** Fully qualified Docker image references created by this run. */
+  dockerTags?: string[];
+  /** Immutable digest or local content ID of the source image. */
+  dockerDigest?: string;
 };

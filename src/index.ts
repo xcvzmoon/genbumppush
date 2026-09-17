@@ -15,6 +15,7 @@ export { ReleaseError } from './error.ts';
 export { runRelease } from './release.ts';
 export type {
   CliOptions,
+  DockerOptions,
   GenBumpPushConfig,
   GitHubOptions,
   GitOptions,

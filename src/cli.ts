@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { ReleaseError } from './error.ts';
 import { RELEASE_TYPES } from './types.ts';
 
-export const HELP_TEXT = `Usage: genbumppush [release] [options]\n\nGenerate a changelog, bump versions, create an annotated tag, and push atomically.\n\nArguments:\n  release             ${RELEASE_TYPES.join(' | ')}\n\nOptions:\n  --cwd <path>        Repository directory\n  --config <path>     Explicit C12 config file\n  --preid <id>        Prerelease identifier\n  --retry-gitlab <tag> Retry GitLab release creation for a pushed tag\n  --retry-github <tag> Retry GitHub release creation for a pushed tag\n  --dry-run           Preview without changes\n  --no-push           Keep commit and tag local\n  --yes, -y           Skip confirmation\n  --help, -h          Show help\n`;
+export const HELP_TEXT = `Usage: genbumppush [release] [options]\n\nGenerate a changelog, bump versions, create an annotated tag, and push atomically.\n\nArguments:\n  release              ${RELEASE_TYPES.join(' | ')}\n\nOptions:\n  --cwd <path>         Repository directory\n  --config <path>      Explicit C12 config file\n  --preid <id>         Prerelease identifier\n  --retry-gitlab <tag> Retry GitLab release creation for a pushed tag\n  --retry-github <tag> Retry GitHub release creation for a pushed tag\n  --retry-docker <tag> Retry Docker publication for a pushed tag\n  --dry-run            Preview without changes\n  --no-push            Keep commit and tag local\n  --no-docker          Disable configured Docker tagging\n  --yes, -y            Skip confirmation\n  --help, -h           Show help\n`;
 
 function isType(value: string): value is ReleaseType {
   return RELEASE_TYPES.some((item) => item === value);
@@ -40,6 +40,10 @@ export function parseCliOptions(args: string[]): CliOptions {
 
       case '--no-push':
         result.push = false;
+        break;
+
+      case '--no-docker':
+        result.docker = false;
         break;
 
       case '--yes':
@@ -85,6 +89,11 @@ export function parseCliOptions(args: string[]): CliOptions {
         if (inlineValue === undefined) index += 1;
         break;
 
+      case '--retry-docker':
+        result.dockerRetryTag = inlineValue ?? next(args, index, '--retry-docker');
+        if (inlineValue === undefined) index += 1;
+        break;
+
       default:
         if (isType(arg) && result.release === undefined) {
           result.release = arg;
@@ -106,10 +115,25 @@ export function parseCliOptions(args: string[]): CliOptions {
       '--retry-github cannot be combined with a release type.',
     );
   }
-  if (result.gitlabRetryTag !== undefined && result.githubRetryTag !== undefined) {
+  if (result.dockerRetryTag !== undefined && result.release !== undefined) {
     throw new ReleaseError(
       'CONFLICTING_ARGUMENTS',
-      '--retry-gitlab and --retry-github cannot be combined.',
+      '--retry-docker cannot be combined with a release type.',
+    );
+  }
+  if (result.dockerRetryTag !== undefined && result.docker === false) {
+    throw new ReleaseError(
+      'CONFLICTING_ARGUMENTS',
+      '--retry-docker cannot be combined with --no-docker.',
+    );
+  }
+  const retries = [result.gitlabRetryTag, result.githubRetryTag, result.dockerRetryTag].filter(
+    (value) => value !== undefined,
+  );
+  if (retries.length > 1) {
+    throw new ReleaseError(
+      'CONFLICTING_ARGUMENTS',
+      'Publication retry options cannot be combined.',
     );
   }
   return result;

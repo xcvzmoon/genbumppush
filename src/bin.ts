@@ -13,6 +13,8 @@ try {
       console.info(`GitHub release ${result.tag ?? ''} created.`);
     } else if (result.gitlabReleaseCreated) {
       console.info(`GitLab release ${result.tag ?? ''} created.`);
+    } else if (result.dockerImagePublished) {
+      console.info(`Docker image ${result.dockerImage ?? ''} published.`);
     } else if (result.releaseType === undefined) {
       console.info('No releasable commits found.');
     } else if (result.dryRun) {
