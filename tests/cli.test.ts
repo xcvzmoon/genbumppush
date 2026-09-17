@@ -47,6 +47,23 @@ describe('parseCliOptions', () => {
     );
   });
 
+  test('parses Docker controls and rejects conflicting retries', () => {
+    expect(parseCliOptions(['--retry-docker=v1.2.4'])).toMatchObject({
+      dockerRetryTag: 'v1.2.4',
+    });
+    expect(parseCliOptions(['--no-docker'])).toMatchObject({ docker: false });
+    expect(() => parseCliOptions(['patch', '--retry-docker', 'v1.2.4'])).toThrow(
+      'cannot be combined',
+    );
+    expect(() => parseCliOptions(['--retry-docker'])).toThrow('requires a value');
+    expect(() => parseCliOptions(['--retry-docker=v1.2.4', '--no-docker'])).toThrow(
+      'cannot be combined',
+    );
+    expect(() => parseCliOptions(['--retry-github', 'v1.2.4', '--retry-docker', 'v1.2.4'])).toThrow(
+      'cannot be combined',
+    );
+  });
+
   test('rejects duplicate positional release types', () => {
     expect(() => parseCliOptions(['minor', 'patch'])).toThrow('Unknown argument');
   });

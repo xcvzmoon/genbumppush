@@ -21,6 +21,7 @@ describe('defineConfig', () => {
       release: 'patch',
       hooks: { before: ['pnpm check'] },
       github: { enabled: true },
+      docker: { enabled: true, source: 'acme/build:1', image: 'acme/app' },
     } as const satisfies GenBumpPushConfig;
 
     const result = defineConfig(input);
