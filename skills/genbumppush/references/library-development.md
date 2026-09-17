@@ -30,6 +30,7 @@ Scripts in package.json map `build`/`dev`/`test`/`check` onto `vp`. Prefer `vp` 
 | `src/version.ts`       | SemVer parse/bump (`bumpVersion`)                            |
 | `src/version-files.ts` | Adapters, recursive discovery, plan/apply/restore            |
 | `src/git.ts`           | git subprocess, tag existence, hooks                         |
+| `src/docker.ts`        | Docker image validation, tagging, and publication            |
 | `src/github.ts`        | GitHub release API (github.com + GHES)                       |
 | `src/gitlab.ts`        | GitLab release API + changelog section extract               |
 | `src/env.ts`           | `GENBUMPPUSH_*` names + env readers                          |
@@ -44,7 +45,7 @@ Dependencies of note: `c12` (config), `changelogen` (commit parse, semver detect
 Exported from package root (`dist/index.mjs`):
 
 - `defineConfig`, `loadReleaseConfig`, `runRelease`, `ReleaseError`
-- Types: `GenBumpPushConfig`, `CliOptions`, `ReleaseResult`, `ReleaseType`, `GitOptions`, `GitHubOptions`, `GitLabOptions`, `HookOptions`
+- Types: `GenBumpPushConfig`, `CliOptions`, `ReleaseResult`, `ReleaseType`, `GitOptions`, `GitHubOptions`, `GitLabOptions`, `DockerOptions`, `HookOptions`
 
 `bin.genbumppush` → `dist/bin.mjs`. Keep `RELEASE_TYPES` aligned with changelogen `SemverBumpType`.
 

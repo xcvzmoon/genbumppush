@@ -15,8 +15,10 @@ Positional release type (optional): `major | minor | patch | premajor | preminor
 | `--preid <id>`         | Prerelease id: `^[0-9A-Za-z-]+$` only                                  |
 | `--retry-gitlab <tag>` | Retry GitLab release for an existing **remote** tag                    |
 | `--retry-github <tag>` | Retry GitHub release for an existing **remote** tag                    |
+| `--retry-docker <tag>` | Retry Docker publication for an existing **remote** Git tag            |
 | `--dry-run`            | Print planned version + changelog markdown; no file/Git/remote changes |
 | `--no-push`            | Keep commit and tag local (`git.push = false`)                         |
+| `--no-docker`          | Disable configured Docker tagging for this invocation                  |
 | `--yes`, `-y`          | Skip interactive confirmation                                          |
 | `--help`, `-h`         | Help text                                                              |
 
@@ -24,7 +26,7 @@ Conflict rules (parse errors):
 
 - `--retry-gitlab` cannot combine with a release type
 - `--retry-github` cannot combine with a release type
-- `--retry-gitlab` and `--retry-github` cannot combine
+- Provider retry options cannot combine with one another
 
 CLI overrides config: `--no-push` forces `git.push` false even if config says true.
 
@@ -54,7 +56,7 @@ SemVer quirks implemented in `bumpVersion`:
 4. Parse commits → detect or force release type; if none, exit success with no mutation
 5. Compute planned version and tag template
 6. Dry-run? print and return
-7. Resolve provider contexts (requires push + enabled + credentials)
+7. Preflight Docker source image and resolve provider contexts
 8. Confirm (unless `--yes`)
 9. Check local + remote tag collision
 10. Run `hooks.before`
@@ -63,9 +65,10 @@ SemVer quirks implemented in `bumpVersion`:
 13. `git tag -a` (optional `-s`)
 14. `git push --atomic <remote> HEAD:<branch> refs/tags/<tag>` if push
 15. Extra atomic pushes to `gitlab.remote` / `github.remote` when those differ from `git.remote`
-16. Optional GitHub/GitLab release API
-17. Run `hooks.after`
-18. Return `ReleaseResult`
+16. Optional Docker tagging/publication
+17. Optional GitHub/GitLab release API
+18. Run `hooks.after`
+19. Return `ReleaseResult`
 
 ## Error codes and recovery
 
@@ -88,6 +91,11 @@ CLI prints `[CODE] message` and exits 1.
 | `GITLAB_RELEASE_FAILED`                                               | same for GitLab (project required)                  | Set project + token; push must be on                                |
 | `RELEASE_PUBLISHED_GITHUB_FAILED`                                     | Git tag pushed, GitHub API failed                   | `genbumppush --retry-github <tag>`                                  |
 | `RELEASE_PUBLISHED_GITLAB_FAILED`                                     | Git tag pushed, GitLab API failed                   | `genbumppush --retry-gitlab <tag>`                                  |
+| `DOCKER_NOT_AVAILABLE` / `DOCKER_SOURCE_NOT_FOUND`                    | Docker CLI/source image missing                     | Install/start Docker; build or pull the configured source           |
+| `DOCKER_CONFIG_INVALID` / `DOCKER_TAG_INVALID`                        | Unsafe or incomplete Docker config                  | Correct image repository/tag templates                              |
+| `DOCKER_PUBLISH_FAILED`                                               | Retry Git remote/tag is unavailable                 | Correct the remote or push the Git tag first                        |
+| `DOCKER_TAG_CONFLICT` / `DOCKER_TAG_FAILED` / `DOCKER_PUSH_FAILED`    | Local tag conflict or Docker operation failed       | Inspect the image/digest; authenticate to the registry              |
+| `RELEASE_PUBLISHED_DOCKER_FAILED`                                     | Git tag pushed, Docker publication failed           | `genbumppush --retry-docker <tag>`                                  |
 | `UNKNOWN_ARGUMENT` / `MISSING_OPTION_VALUE` / `CONFLICTING_ARGUMENTS` | CLI parse                                           | Follow help text                                                    |
 
 ## Partial-failure playbooks
@@ -123,6 +131,7 @@ Do **not** re-run a full release (tag already exists). Fix credentials and:
 ```bash
 genbumppush --retry-github v1.2.3
 genbumppush --retry-gitlab v1.2.3
+genbumppush --retry-docker v1.2.3
 ```
 
 Retry requires the tag to exist on the configured remote (`gitlab.remote` / `github.remote` when set, otherwise `git.remote`) and the provider `enabled: true` with token/project/repo available.
@@ -155,6 +164,7 @@ import type {
   GitOptions,
   GitHubOptions,
   GitLabOptions,
+  DockerOptions,
   HookOptions,
 } from 'genbumppush';
 ```
