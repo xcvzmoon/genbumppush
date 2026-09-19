@@ -63,7 +63,16 @@ export default defineConfig({
   // hooks: { before: ['npm run check'], after: 'echo done' },
   // github: { enabled: true },
   // gitlab: { enabled: true, project: 'group/name' },
-  // docker: { enabled: true, source: 'acme/app:build', image: 'acme/app' },
+  // docker: {
+  //   enabled: true,
+  //   // single: source: 'acme/app:build', image: 'acme/app'
+  //   // multi (api + web):
+  //   // tags: ['{{version}}', '{{tag}}'],
+  //   // images: [
+  //   //   { source: 'acme/api-build:{{version}}', image: 'ghcr.io/acme/api' },
+  //   //   { source: 'acme/web-build:{{version}}', image: 'ghcr.io/acme/web' },
+  //   // ],
+  // },
 });
 ```
 
@@ -126,21 +135,21 @@ const result = await runRelease({
 
 Map `ReleaseError.code` printed as `[CODE] message`:
 
-| Code                                              | Meaning                                    | Action                                                               |
-| ------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| `DIRTY_WORKTREE`                                  | Uncommitted changes                        | `git status`; commit or stash                                        |
-| `TAG_EXISTS`                                      | Local or remote tag already exists         | Do not force-delete published tags; fix version or choose next bump  |
-| `VERSION_MISMATCH`                                | A version file disagrees with root version | Align every configured file with root `package.json` version         |
-| `DETACHED_HEAD`                                   | No branch checked out                      | `git checkout <branch>`                                              |
-| `NOT_A_REPOSITORY`                                | cwd is not a Git repo                      | Point `--cwd` at the repo                                            |
-| `HOOK_FAILED`                                     | before/after hook non-zero                 | Fix the failing command                                              |
-| `RELEASE_PUBLISHED_GITHUB_FAILED`                 | Git push OK, GitHub release failed         | Fix token/repo, then `genbumppush --retry-github <tag>`              |
-| `RELEASE_PUBLISHED_GITLAB_FAILED`                 | Git push OK, GitLab release failed         | Fix token/project, then `genbumppush --retry-gitlab <tag>`           |
-| `RELEASE_PUBLISHED_DOCKER_FAILED`                 | Git push OK, Docker publication failed     | Fix Docker/registry, then `genbumppush --retry-docker <tag>`         |
-| `GITHUB_RELEASE_FAILED` / `GITLAB_RELEASE_FAILED` | Provider not ready                         | Enable provider, set token/project, or disable and use tag-only flow |
-| `GIT_COMMAND_FAILED`                              | Underlying git failed                      | Inspect `git status`, `git log`, `git show`                          |
-| `CANCELLED`                                       | User declined confirm                      | Rerun when ready                                                     |
-| `INVALID_PREID` / `INVALID_VERSION`               | Bad SemVer / preid                         | Fix package version or `--preid` (letters, numbers, hyphens only)    |
+| Code                                              | Meaning                                    | Action                                                                                           |
+| ------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `DIRTY_WORKTREE`                                  | Uncommitted changes                        | `git status`; commit or stash                                                                    |
+| `TAG_EXISTS`                                      | Local or remote tag already exists         | Do not force-delete published tags; fix version or choose next bump                              |
+| `VERSION_MISMATCH`                                | A version file disagrees with root version | Align every configured file with root `package.json` version                                     |
+| `DETACHED_HEAD`                                   | No branch checked out                      | `git checkout <branch>`                                                                          |
+| `NOT_A_REPOSITORY`                                | cwd is not a Git repo                      | Point `--cwd` at the repo                                                                        |
+| `HOOK_FAILED`                                     | before/after hook non-zero                 | Fix the failing command                                                                          |
+| `RELEASE_PUBLISHED_GITHUB_FAILED`                 | Git push OK, GitHub release failed         | Fix token/repo, then `genbumppush --retry-github <tag>`                                          |
+| `RELEASE_PUBLISHED_GITLAB_FAILED`                 | Git push OK, GitLab release failed         | Fix token/project, then `genbumppush --retry-gitlab <tag>`                                       |
+| `RELEASE_PUBLISHED_DOCKER_FAILED`                 | Git push OK, Docker publication failed     | Error names the image; fix Docker/registry, then `genbumppush --retry-docker <tag>` (all images) |
+| `GITHUB_RELEASE_FAILED` / `GITLAB_RELEASE_FAILED` | Provider not ready                         | Enable provider, set token/project, or disable and use tag-only flow                             |
+| `GIT_COMMAND_FAILED`                              | Underlying git failed                      | Inspect `git status`, `git log`, `git show`                                                      |
+| `CANCELLED`                                       | User declined confirm                      | Rerun when ready                                                                                 |
+| `INVALID_PREID` / `INVALID_VERSION`               | Bad SemVer / preid                         | Fix package version or `--preid` (letters, numbers, hyphens only)                                |
 
 If push fails after commit+tag: leave the commit, inspect, then either `git push --atomic <remote> HEAD:<branch> refs/tags/<tag>` or deliberately remove the local tag and retry.
 

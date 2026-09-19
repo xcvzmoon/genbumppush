@@ -114,9 +114,15 @@ export default defineConfig({
   },
   // docker: {
   //   enabled: true,
-  //   source: 'ghcr.io/acme/app-build:{{version}}',
-  //   image: 'ghcr.io/acme/app',
-  //   tags: ['{{version}}', '{{tag}}'],
+  //   // Single image:
+  //   // source: 'ghcr.io/acme/app-build:{{version}}',
+  //   // image: 'ghcr.io/acme/app',
+  //   // tags: ['{{version}}', '{{tag}}'],
+  //   // Multiple images (api + web):
+  //   // images: [
+  //   //   { source: 'ghcr.io/acme/api-build:{{version}}', image: 'ghcr.io/acme/api' },
+  //   //   { source: 'ghcr.io/acme/web-build:{{version}}', image: 'ghcr.io/acme/web' },
+  //   // ],
   // },
 });
 ```
@@ -173,12 +179,15 @@ JSON has no comments and no `defineConfig` typing, so move to `genbumppush.confi
 | `github.releaseName`       | string                    | tag                            | Release title template                  |
 | `gitlab.enabled`           | boolean                   | `false`                        | Create a GitLab release after push      |
 | `gitlab.remote`            | string                    | unset                          | Extra Git remote for dual-host GitLab   |
-| `docker.enabled`           | boolean                   | `false`                        | Tag an existing image during release    |
-| `docker.source`            | string                    | required                       | Existing local source image             |
-| `docker.image`             | string                    | required                       | Destination repository without a tag    |
-| `docker.tags`              | string[]                  | `['{{version}}']`              | Destination tag templates               |
+| `docker.enabled`           | boolean                   | `false`                        | Tag existing image(s) during release    |
+| `docker.images`            | object[]                  | unset                          | Multi-image form (api + web, …)         |
+| `docker.source`            | string                    | required\*                     | Existing local source image             |
+| `docker.image`             | string                    | required\*                     | Destination repository without a tag    |
+| `docker.tags`              | string[]                  | `['{{version}}']`              | Destination tag templates / defaults    |
 | `docker.push`              | boolean                   | `true`                         | Push tags to the image registry         |
 | `docker.allowMutableTags`  | boolean                   | `false`                        | Permit the mutable `latest` tag         |
+
+\* Required for the singular form. Prefer `docker.images[]` when the release ships more than one image; do not mix both forms.
 
 `{{version}}` is replaced in release templates. Docker templates also support `{{tag}}`, which resolves to the Git tag. Hooks run through the shell in the repository directory; only use trusted configuration.
 
@@ -281,7 +290,9 @@ For npm trusted publishing, configure the npm package trusted publisher to match
 
 ## Docker image tagging
 
-Docker support is opt-in and operates on an image that has already been built locally. genbumppush never receives registry credentials and does not build images; authenticate with `docker login` or your CI credential helper before the release.
+Docker support is opt-in and operates on images that have already been built locally. genbumppush never receives registry credentials and does not build images; authenticate with `docker login` or your CI credential helper before the release.
+
+Single image:
 
 ```ts
 export default defineConfig({
@@ -296,11 +307,35 @@ export default defineConfig({
 });
 ```
 
-Before changing release files, genbumppush verifies the source image, resolves its content digest, and rejects destination tags that point to a different local image. After the Git release is pushed, it creates and pushes every configured Docker tag. `latest` is rejected unless `allowMutableTags` is explicitly enabled.
+Multiple images from the same release (for example compose services `api` + `web`):
+
+```ts
+export default defineConfig({
+  git: { push: true },
+  docker: {
+    enabled: true,
+    tags: ['{{version}}', '{{tag}}'],
+    images: [
+      {
+        source: 'ghcr.io/acme/api-build:{{version}}',
+        image: 'ghcr.io/acme/api',
+      },
+      {
+        source: 'ghcr.io/acme/web-build:{{version}}',
+        image: 'ghcr.io/acme/web',
+      },
+    ],
+  },
+});
+```
+
+Root-level `tags`, `push`, and `allowMutableTags` act as defaults for each `images[]` entry; set them on an entry to override. Do not combine `docker.images` with singular `docker.source`/`docker.image`.
+
+Before changing release files, genbumppush verifies every source image, resolves its content digest, and rejects destination tags that point to a different local image. After the Git release is pushed, it tags and pushes every configured image. `latest` is rejected unless `allowMutableTags` is explicitly enabled. `ReleaseResult.dockerImages` reports every published image; singular `dockerImage`/`dockerTags` remain for single-image configs.
 
 For immutable release tags, enable tag immutability in the destination registry. Registry policy is the authoritative protection against another client replacing an existing remote tag.
 
-Dry runs return the planned image references without requiring Docker. Set `docker.push: false` for local-only tagging; registry publication requires `git.push` to remain enabled. If registry publication fails after Git succeeds, authenticate or repair the registry and run `genbumppush --retry-docker <tag>`. Retries verify that the Git tag exists on the configured Git remote.
+Dry runs list every planned image reference without requiring Docker. Set `docker.push: false` for local-only tagging; registry publication requires `git.push` to remain enabled. If registry publication fails after Git succeeds (the error names the failing image), authenticate or repair the registry and run `genbumppush --retry-docker <tag>`. Retries verify that the Git tag exists on the configured Git remote and re-publish **all** configured images for that tag.
 
 ## GitHub and GitLab releases
 

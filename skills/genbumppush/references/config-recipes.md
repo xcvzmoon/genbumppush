@@ -173,6 +173,36 @@ CI should inject the same names via the job environment, not a file.
 
 ## Provider release config
 
+### Docker — single image
+
+```ts
+export default defineConfig({
+  docker: {
+    enabled: true,
+    source: 'ghcr.io/acme/app-build:{{version}}',
+    image: 'ghcr.io/acme/app',
+    tags: ['{{version}}', '{{tag}}'],
+  },
+});
+```
+
+### Docker — dual image (api + web)
+
+```ts
+export default defineConfig({
+  docker: {
+    enabled: true,
+    tags: ['{{version}}', '{{tag}}'],
+    images: [
+      { source: 'ghcr.io/acme/api-build:{{version}}', image: 'ghcr.io/acme/api' },
+      { source: 'ghcr.io/acme/web-build:{{version}}', image: 'ghcr.io/acme/web' },
+    ],
+  },
+});
+```
+
+Do not mix `docker.images` with singular `docker.source`/`docker.image`. Root `tags`/`push`/`allowMutableTags` default into each entry. `--retry-docker <tag>` re-publishes every configured image.
+
 ### GitHub (incl. GHES)
 
 ```ts
