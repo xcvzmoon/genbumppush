@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.0.8
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.7...v0.0.8)
+
+### 🚀 Enhancements
+
+- **docker:** Support multiple images per release ([197dd43](https://github.com/xcvzmoon/genbumppush/commit/197dd43))
+
+### 📖 Documentation
+
+- **docker:** Document multi-image publication and api+web example ([a326b47](https://github.com/xcvzmoon/genbumppush/commit/a326b47))
+
+### ✅ Tests
+
+- **docker:** Cover multi-image plan, publish, and dry-run ([33a3986](https://github.com/xcvzmoon/genbumppush/commit/33a3986))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.7
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.6...v0.0.7)
