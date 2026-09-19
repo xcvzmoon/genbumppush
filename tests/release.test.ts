@@ -80,6 +80,54 @@ describe('runRelease', () => {
     expect(result.dockerTags).toEqual(['ghcr.io/acme/app:1.2.4', 'ghcr.io/acme/app:v1.2.4']);
     expect(result.dockerImagePublished).toBeUndefined();
   });
+
+  test('dry run lists every planned multi-image Docker reference', async () => {
+    const cwd = await repository();
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      [
+        'export default {',
+        '  changelog: false,',
+        '  git: { push: false },',
+        '  docker: {',
+        '    enabled: true,',
+        "    tags: ['{{version}}', '{{tag}}'],",
+        '    push: false,',
+        '    images: [',
+        "      { source: 'acme/api-build:{{version}}', image: 'ghcr.io/acme/api' },",
+        "      { source: 'acme/web-build:{{version}}', image: 'ghcr.io/acme/web' },",
+        '    ],',
+        '  },',
+        '};',
+        '',
+      ].join('\n'),
+    );
+    git(cwd, 'add', '.');
+    git(cwd, 'commit', '-m', 'chore: configure multi-image Docker publication');
+
+    const result = await runRelease({
+      cwd,
+      release: 'patch',
+      dryRun: true,
+      yes: true,
+      help: false,
+    });
+
+    expect(result.dockerImages).toEqual([
+      {
+        image: 'ghcr.io/acme/api',
+        references: ['ghcr.io/acme/api:1.2.4', 'ghcr.io/acme/api:v1.2.4'],
+      },
+      {
+        image: 'ghcr.io/acme/web',
+        references: ['ghcr.io/acme/web:1.2.4', 'ghcr.io/acme/web:v1.2.4'],
+      },
+    ]);
+    expect(result.dockerImage).toBeUndefined();
+    expect(result.dockerTags).toBeUndefined();
+    expect(result.dockerImagePublished).toBeUndefined();
+  });
+
   test('creates a release commit and annotated local tag', async () => {
     const cwd = await repository();
     const result = await runRelease({
