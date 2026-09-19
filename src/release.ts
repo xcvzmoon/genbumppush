@@ -18,7 +18,12 @@ import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { loadReleaseConfig } from './config.ts';
-import { planDockerPublication, preflightDockerPublication, publishDockerImage } from './docker.ts';
+import {
+  applyDockerResultFields,
+  planDockerPublications,
+  preflightDockerPublications,
+  publishDockerImages,
+} from './docker.ts';
 import { ReleaseError } from './error.ts';
 import { git, isGitRepository, remoteExists, remoteTagExists, runHook, tagExists } from './git.ts';
 import {
@@ -377,25 +382,23 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
       config.git?.tagName ?? 'v{{version}}',
       currentVersion,
     );
-    const plan = planDockerPublication(config.docker, retryVersion, options.dockerRetryTag);
-    if (plan === undefined) {
+    const plans = planDockerPublications(config.docker, retryVersion, options.dockerRetryTag);
+    if (plans.length === 0) {
       throw new ReleaseError(
         'DOCKER_CONFIG_INVALID',
         'Enable docker before retrying Docker publication.',
       );
     }
-    const published = publishDockerImage(plan, preflightDockerPublication(plan));
-    return {
+    const published = publishDockerImages(plans, preflightDockerPublications(plans));
+    const result: ReleaseResult = {
       currentVersion,
       tag: options.dockerRetryTag,
       pushed: true,
       dryRun: false,
       commitCount: 0,
-      dockerImagePublished: true,
-      dockerImage: published.image,
-      dockerTags: published.references,
-      dockerDigest: published.digest,
     };
+    applyDockerResultFields(result, published);
+    return result;
   }
   if (options.gitlabRetryTag !== undefined) {
     const context = gitLabContext(config.gitlab);
@@ -464,11 +467,16 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
 
   const plannedVersion = bumpVersion(currentVersion, releaseType, config.preid);
   const plannedTag = render(config.git?.tagName ?? 'v{{version}}', plannedVersion);
-  const dockerPlan = planDockerPublication(config.docker, plannedVersion, plannedTag);
+  const dockerPlans = planDockerPublications(config.docker, plannedVersion, plannedTag);
 
   if (options.dryRun) {
     console.info(`Dry run: v${currentVersion} → v${plannedVersion} (${plannedTag})`);
     console.info(await generateMarkDown(commits, changelog));
+    for (const plan of dockerPlans) {
+      console.info(
+        `Dry run: would publish Docker image ${plan.image} from ${plan.source} as ${plan.references.join(', ')}`,
+      );
+    }
 
     const result: ReleaseResult = {
       currentVersion,
@@ -479,21 +487,24 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
       dryRun: true,
       commitCount: commits.length,
     };
-    if (dockerPlan !== undefined) {
-      result.dockerImage = dockerPlan.image;
-      result.dockerTags = dockerPlan.references;
+    if (dockerPlans.length > 0) {
+      result.dockerImages = dockerPlans.map(({ image, references }) => ({ image, references }));
+      if (dockerPlans.length === 1 && dockerPlans[0] !== undefined) {
+        result.dockerImage = dockerPlans[0].image;
+        result.dockerTags = dockerPlans[0].references;
+      }
     }
     return result;
   }
 
-  if (dockerPlan?.push === true && !push) {
+  if (dockerPlans.some((plan) => plan.push) && !push) {
     throw new ReleaseError(
       'DOCKER_CONFIG_INVALID',
       'Docker registry publication requires git.push to be enabled. Set docker.push to false for local tagging.',
     );
   }
-  const dockerSource =
-    dockerPlan === undefined ? undefined : preflightDockerPublication(dockerPlan);
+  const dockerSources =
+    dockerPlans.length === 0 ? undefined : preflightDockerPublications(dockerPlans);
 
   let gitlab: GitLabContext | undefined;
   let gitlabRemote: string | undefined;
@@ -629,21 +640,16 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
     }
   }
 
-  let dockerPublished:
-    | {
-        image: string;
-        references: string[];
-        digest: string;
-      }
-    | undefined;
-  if (dockerPlan !== undefined && dockerSource !== undefined) {
+  let dockerPublished: ReturnType<typeof publishDockerImages> | undefined;
+  if (dockerPlans.length > 0 && dockerSources !== undefined) {
     try {
-      dockerPublished = publishDockerImage(dockerPlan, dockerSource);
+      dockerPublished = publishDockerImages(dockerPlans, dockerSources);
     } catch (error) {
       if (!push) throw error;
+      const reason = error instanceof Error ? error.message : String(error);
       throw new ReleaseError(
         'RELEASE_PUBLISHED_DOCKER_FAILED',
-        `Git release ${tag} was pushed, but Docker publication failed. Retry with: genbumppush --retry-docker ${tag}`,
+        `Git release ${tag} was pushed, but Docker publication failed: ${reason} Retry with: genbumppush --retry-docker ${tag}`,
         { cause: error },
       );
     }
@@ -697,10 +703,7 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
   if (gitlabReleaseCreated) result.gitlabReleaseCreated = true;
   if (githubReleaseCreated) result.githubReleaseCreated = true;
   if (dockerPublished !== undefined) {
-    result.dockerImagePublished = true;
-    result.dockerImage = dockerPublished.image;
-    result.dockerTags = dockerPublished.references;
-    result.dockerDigest = dockerPublished.digest;
+    applyDockerResultFields(result, dockerPublished);
   }
   return result;
 }

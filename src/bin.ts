@@ -13,8 +13,14 @@ try {
       console.info(`GitHub release ${result.tag ?? ''} created.`);
     } else if (result.gitlabReleaseCreated) {
       console.info(`GitLab release ${result.tag ?? ''} created.`);
+    } else if (result.dockerImages !== undefined && result.dockerImages.length > 1) {
+      console.info(
+        `Docker images published: ${result.dockerImages.map((item) => item.image).join(', ')}`,
+      );
     } else if (result.dockerImagePublished) {
-      console.info(`Docker image ${result.dockerImage ?? ''} published.`);
+      console.info(
+        `Docker image ${result.dockerImage ?? result.dockerImages?.[0]?.image ?? ''} published.`,
+      );
     } else if (result.releaseType === undefined) {
       console.info('No releasable commits found.');
     } else if (result.dryRun) {

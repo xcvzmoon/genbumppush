@@ -105,19 +105,56 @@ export type HookOptions = {
   after?: string | string[];
 };
 
-/** Optional Docker tagging and publication for an already-built image. */
-export type DockerOptions = {
-  /** Enable Docker image tagging for releases. @defaultValue false */
-  enabled?: boolean;
+/**
+ * One Docker publication entry inside {@link DockerOptions}.
+ *
+ * When `docker.images` is used, each entry is tagged and pushed independently.
+ * Root-level `tags` / `push` / `allowMutableTags` act as defaults for entries
+ * that omit them.
+ */
+export type DockerImageOptions = {
   /** Existing local image reference. Supports `{{version}}` and `{{tag}}`. */
   source?: string;
   /** Destination image repository without a tag. Supports release templates. */
   image?: string;
   /** Destination tags. @defaultValue `['{{version}}']` */
-  tags?: string[];
-  /** Push created tags to their registry. @defaultValue true */
+  tags?: readonly string[];
+  /** Push created tags to their registry. @defaultValue inherited from `docker.push` */
   push?: boolean;
-  /** Explicitly allow the mutable `latest` tag. @defaultValue false */
+  /** Explicitly allow the mutable `latest` tag. @defaultValue inherited from `docker.allowMutableTags` */
+  allowMutableTags?: boolean;
+};
+
+/**
+ * Optional Docker tagging and publication for already-built images.
+ *
+ * Two config shapes are supported:
+ * - **Single image** — set `source` + `image` (and optional `tags`) on this object.
+ * - **Multiple images** — set `images` to one or more {@link DockerImageOptions} entries
+ *   (for example `api` + `web`). Do not combine both shapes in one config.
+ *
+ * genbumppush never builds images; sources stay pre-built local references.
+ */
+export type DockerOptions = {
+  /** Enable Docker image tagging for releases. @defaultValue false */
+  enabled?: boolean;
+  /**
+   * Multiple images to tag and push for a single release.
+   * Prefer this over singular `source`/`image` when the repo ships more than one image.
+   */
+  images?: readonly DockerImageOptions[];
+  /** Existing local image reference (single-image form). Supports `{{version}}` and `{{tag}}`. */
+  source?: string;
+  /** Destination image repository without a tag (single-image form). */
+  image?: string;
+  /**
+   * Destination tags for the single-image form, or default tags for `images[]` entries
+   * that omit their own. @defaultValue `['{{version}}']`
+   */
+  tags?: readonly string[];
+  /** Default for each image: push created tags to their registry. @defaultValue true */
+  push?: boolean;
+  /** Default for each image: explicitly allow the mutable `latest` tag. @defaultValue false */
   allowMutableTags?: boolean;
 };
 
@@ -305,7 +342,10 @@ export type GenBumpPushConfig = {
   gitlab?: GitLabOptions;
   /** Optional GitHub release after push. See {@link GitHubOptions}. */
   github?: GitHubOptions;
-  /** Optional Docker image tagging after the Git release is created. */
+  /**
+   * Optional Docker image tagging after the Git release is created.
+   * Supports one image (`source`/`image`) or many via `docker.images`.
+   */
   docker?: DockerOptions;
   /** Shell commands run before and after the release. See {@link HookOptions}. */
   hooks?: HookOptions;
@@ -395,12 +435,33 @@ export type ReleaseResult = {
   gitlabReleaseCreated?: boolean;
   /** `true` when a GitHub release was created after the Git push. */
   githubReleaseCreated?: boolean;
-  /** `true` when all configured Docker tags were created and optionally pushed. */
+  /** `true` when all configured Docker images were tagged and optionally pushed. */
   dockerImagePublished?: boolean;
-  /** Destination Docker image repository. */
+  /**
+   * Every planned or published Docker image from this run.
+   * Always set when Docker was configured; use this for multi-image releases.
+   */
+  dockerImages?: {
+    /** Destination repository without a tag. */
+    image: string;
+    /** Fully qualified references created (or planned) for this image. */
+    references: string[];
+    /** Immutable digest or local content ID of the source image (published runs only). */
+    digest?: string;
+  }[];
+  /**
+   * Destination Docker image repository.
+   * Populated only for single-image configs (backward compatibility).
+   */
   dockerImage?: string;
-  /** Fully qualified Docker image references created by this run. */
+  /**
+   * Fully qualified Docker image references created by this run.
+   * Populated only for single-image configs (backward compatibility).
+   */
   dockerTags?: string[];
-  /** Immutable digest or local content ID of the source image. */
+  /**
+   * Immutable digest or local content ID of the source image.
+   * Populated only for single-image configs (backward compatibility).
+   */
   dockerDigest?: string;
 };

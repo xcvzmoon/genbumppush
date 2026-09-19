@@ -1,4 +1,4 @@
-import type { DockerOptions } from './types.ts';
+import type { DockerImageOptions, DockerOptions } from './types.ts';
 import { spawnSync } from 'node:child_process';
 import { ReleaseError } from './error.ts';
 
@@ -15,6 +15,8 @@ export type DockerRunner = (
 ) => DockerCommandResult;
 
 export type DockerPublicationPlan = {
+  /** Zero-based index of the configured image this plan came from. */
+  index: number;
   source: string;
   image: string;
   references: string[];
@@ -22,6 +24,8 @@ export type DockerPublicationPlan = {
 };
 
 export type DockerPublicationResult = DockerPublicationPlan & { digest: string };
+
+export type DockerSourceIdentity = { digest: string; id: string };
 
 const DOCKER_TIMEOUT_MS = 120_000;
 const TAG_PATTERN = /^[\w][\w.-]{0,127}$/;
@@ -69,25 +73,82 @@ function validateSource(source: string): void {
   }
 }
 
-export function planDockerPublication(
-  config: DockerOptions | undefined,
-  version: string,
-  gitTag: string,
-): DockerPublicationPlan | undefined {
-  if (config?.enabled !== true) return undefined;
-  if (config.source === undefined || config.image === undefined) {
+/**
+ * Normalize Docker config into a concrete list of image entries.
+ *
+ * Supports the singular form (`source`/`image`) and the multi-image form
+ * (`images: [...]`). The two forms are mutually exclusive. Root-level
+ * `tags` / `push` / `allowMutableTags` default into `images[]` entries.
+ *
+ * @returns Empty array when Docker is disabled.
+ * @throws `DOCKER_CONFIG_INVALID` when enabled but nothing usable is configured,
+ *   or when both config forms are mixed.
+ */
+export function resolveDockerImageEntries(config: DockerOptions | undefined): DockerImageOptions[] {
+  if (config?.enabled !== true) return [];
+
+  const imageList: readonly DockerImageOptions[] = Array.isArray(config.images)
+    ? config.images
+    : [];
+  const hasImages = imageList.length > 0;
+  const hasSingular = config.source !== undefined || config.image !== undefined;
+
+  if (hasImages && hasSingular) {
     throw new ReleaseError(
       'DOCKER_CONFIG_INVALID',
-      'docker.source and docker.image are required when Docker tagging is enabled.',
+      'Use either docker.images or the singular docker.source/docker.image form, not both.',
     );
   }
 
-  const source = render(config.source, version, gitTag);
-  const image = render(config.image, version, gitTag);
+  if (hasImages) {
+    return imageList.map((entry: DockerImageOptions) => ({
+      source: entry.source,
+      image: entry.image,
+      tags: entry.tags ?? config.tags,
+      push: entry.push ?? config.push,
+      allowMutableTags: entry.allowMutableTags ?? config.allowMutableTags,
+    }));
+  }
+
+  if (hasSingular) {
+    return [
+      {
+        source: config.source,
+        image: config.image,
+        tags: config.tags,
+        push: config.push,
+        allowMutableTags: config.allowMutableTags,
+      },
+    ];
+  }
+
+  throw new ReleaseError(
+    'DOCKER_CONFIG_INVALID',
+    'docker is enabled but no images are configured. Set docker.images, or docker.source and docker.image.',
+  );
+}
+
+function planDockerImageEntry(
+  entry: DockerImageOptions,
+  version: string,
+  gitTag: string,
+  index: number,
+): DockerPublicationPlan {
+  if (entry.source === undefined || entry.image === undefined) {
+    throw new ReleaseError(
+      'DOCKER_CONFIG_INVALID',
+      entry.source === undefined && entry.image === undefined
+        ? 'Each docker.images entry requires source and image.'
+        : 'docker.source and docker.image are required when Docker tagging is enabled.',
+    );
+  }
+
+  const source = render(entry.source, version, gitTag);
+  const image = render(entry.image, version, gitTag);
   validateSource(source);
   validateRepository(image);
 
-  const configuredTags = config.tags ?? ['{{version}}'];
+  const configuredTags = entry.tags ?? ['{{version}}'];
   if (configuredTags.length === 0) {
     throw new ReleaseError('DOCKER_CONFIG_INVALID', 'docker.tags must contain at least one tag.');
   }
@@ -97,7 +158,7 @@ export function planDockerPublication(
     if (!TAG_PATTERN.test(tag)) {
       throw new ReleaseError('DOCKER_TAG_INVALID', `Invalid Docker tag: ${tag}`);
     }
-    if (tag === 'latest' && config.allowMutableTags !== true) {
+    if (tag === 'latest' && entry.allowMutableTags !== true) {
       throw new ReleaseError(
         'DOCKER_TAG_INVALID',
         'The mutable Docker tag "latest" requires docker.allowMutableTags: true.',
@@ -112,18 +173,66 @@ export function planDockerPublication(
   }
 
   return {
+    index,
     source,
     image,
     references: tags.map((tag) => `${image}:${tag}`),
-    push: config.push !== false,
+    push: entry.push !== false,
   };
+}
+
+function validateNoOverlappingReferences(plans: readonly DockerPublicationPlan[]): void {
+  const owner = new Map<string, string>();
+  for (const plan of plans) {
+    for (const reference of plan.references) {
+      const existing = owner.get(reference);
+      if (existing !== undefined) {
+        throw new ReleaseError(
+          'DOCKER_CONFIG_INVALID',
+          `Docker reference ${reference} is planned by multiple images (${existing} and ${plan.source}).`,
+        );
+      }
+      owner.set(reference, plan.source);
+    }
+  }
+}
+
+/**
+ * Plan every configured Docker image for a release.
+ *
+ * @returns Empty array when Docker is disabled.
+ */
+export function planDockerPublications(
+  config: DockerOptions | undefined,
+  version: string,
+  gitTag: string,
+): DockerPublicationPlan[] {
+  const entries = resolveDockerImageEntries(config);
+  const plans = entries.map((entry, index) => planDockerImageEntry(entry, version, gitTag, index));
+  validateNoOverlappingReferences(plans);
+  return plans;
+}
+
+/**
+ * Plan a single Docker image publication.
+ *
+ * Prefer {@link planDockerPublications}. This helper returns the first plan
+ * when Docker is enabled, and `undefined` when it is not — kept for callers
+ * that only handle one image.
+ */
+export function planDockerPublication(
+  config: DockerOptions | undefined,
+  version: string,
+  gitTag: string,
+): DockerPublicationPlan | undefined {
+  return planDockerPublications(config, version, gitTag)[0];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function inspectSource(source: string, run: DockerRunner): { digest: string; id: string } {
+function inspectSource(source: string, run: DockerRunner): DockerSourceIdentity {
   const result = run(['image', 'inspect', source]);
   if (result.error !== undefined) {
     throw new ReleaseError(
@@ -174,7 +283,7 @@ function inspectLocalId(reference: string, run: DockerRunner): string | undefine
 export function preflightDockerPublication(
   plan: DockerPublicationPlan,
   run: DockerRunner = runDocker,
-): { digest: string; id: string } {
+): DockerSourceIdentity {
   const source = inspectSource(plan.source, run);
   for (const reference of plan.references) {
     const existingId = inspectLocalId(reference, run);
@@ -188,9 +297,27 @@ export function preflightDockerPublication(
   return source;
 }
 
+/**
+ * Preflight every planned image before any release mutation.
+ *
+ * Fail-fast on the first image that cannot be published, naming that image.
+ */
+export function preflightDockerPublications(
+  plans: readonly DockerPublicationPlan[],
+  run: DockerRunner = runDocker,
+): DockerSourceIdentity[] {
+  return plans.map((plan) => {
+    try {
+      return preflightDockerPublication(plan, run);
+    } catch (error) {
+      throw wrapDockerImageError(plan, error);
+    }
+  });
+}
+
 export function publishDockerImage(
   plan: DockerPublicationPlan,
-  source: { digest: string; id: string },
+  source: DockerSourceIdentity,
   run: DockerRunner = runDocker,
 ): DockerPublicationResult {
   for (const reference of plan.references) {
@@ -213,4 +340,87 @@ export function publishDockerImage(
   }
 
   return { ...plan, digest: source.digest };
+}
+
+/**
+ * Publish every planned image in order.
+ *
+ * On failure, the error names the image that failed. Earlier images in the
+ * list may already have been tagged/pushed; retry with `--retry-docker <tag>`
+ * re-publishes all configured images.
+ */
+export function publishDockerImages(
+  plans: readonly DockerPublicationPlan[],
+  sources: readonly DockerSourceIdentity[],
+  run: DockerRunner = runDocker,
+): DockerPublicationResult[] {
+  if (plans.length !== sources.length) {
+    throw new ReleaseError(
+      'DOCKER_CONFIG_INVALID',
+      'Docker publication received mismatched plan and preflight source counts.',
+    );
+  }
+  return plans.map((plan, index) => {
+    const source = sources[index];
+    if (source === undefined) {
+      throw new ReleaseError(
+        'DOCKER_CONFIG_INVALID',
+        `Missing preflight source for Docker image ${plan.image}.`,
+      );
+    }
+    try {
+      return publishDockerImage(plan, source, run);
+    } catch (error) {
+      throw wrapDockerImageError(plan, error);
+    }
+  });
+}
+
+function wrapDockerImageError(plan: DockerPublicationPlan, error: unknown): ReleaseError {
+  if (!(error instanceof ReleaseError)) {
+    return new ReleaseError(
+      'DOCKER_PUBLISH_FAILED',
+      `Docker image ${plan.image} failed: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  if (error.message.includes(plan.image)) {
+    return error;
+  }
+  return new ReleaseError(error.code, `Docker image ${plan.image}: ${error.message}`, {
+    cause: error,
+  });
+}
+
+/** Shape of one image reported on {@link import('./types.ts').ReleaseResult}. */
+export type DockerResultImage = {
+  image: string;
+  references: string[];
+  digest?: string;
+};
+
+export function toDockerResultImages(
+  published: readonly DockerPublicationResult[],
+): DockerResultImage[] {
+  return published.map(({ image, references, digest }) => ({ image, references, digest }));
+}
+
+export function applyDockerResultFields(
+  result: {
+    dockerImagePublished?: boolean;
+    dockerImages?: DockerResultImage[];
+    dockerImage?: string;
+    dockerTags?: string[];
+    dockerDigest?: string;
+  },
+  published: readonly DockerPublicationResult[],
+): void {
+  const images = toDockerResultImages(published);
+  result.dockerImagePublished = true;
+  result.dockerImages = images;
+  if (images.length === 1 && images[0] !== undefined) {
+    result.dockerImage = images[0].image;
+    result.dockerTags = images[0].references;
+    if (images[0].digest !== undefined) result.dockerDigest = images[0].digest;
+  }
 }
