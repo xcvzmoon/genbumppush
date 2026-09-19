@@ -45,7 +45,7 @@ Dependencies of note: `c12` (config), `changelogen` (commit parse, semver detect
 Exported from package root (`dist/index.mjs`):
 
 - `defineConfig`, `loadReleaseConfig`, `runRelease`, `ReleaseError`
-- Types: `GenBumpPushConfig`, `CliOptions`, `ReleaseResult`, `ReleaseType`, `GitOptions`, `GitHubOptions`, `GitLabOptions`, `DockerOptions`, `HookOptions`
+- Types: `GenBumpPushConfig`, `CliOptions`, `ReleaseResult`, `ReleaseType`, `GitOptions`, `GitHubOptions`, `GitLabOptions`, `DockerOptions`, `DockerImageOptions`, `HookOptions`
 
 `bin.genbumppush` → `dist/bin.mjs`. Keep `RELEASE_TYPES` aligned with changelogen `SemverBumpType`.
 

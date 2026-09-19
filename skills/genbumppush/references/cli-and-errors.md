@@ -8,19 +8,19 @@ genbumppush [release] [options]
 
 Positional release type (optional): `major | minor | patch | premajor | preminor | prepatch | prerelease`. Omit to detect from Conventional Commits.
 
-| Option                 | Meaning                                                                |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `--cwd <path>`         | Repository directory (default: process cwd). Supports `--cwd=path`.    |
-| `--config <path>`      | Explicit C12 config file                                               |
-| `--preid <id>`         | Prerelease id: `^[0-9A-Za-z-]+$` only                                  |
-| `--retry-gitlab <tag>` | Retry GitLab release for an existing **remote** tag                    |
-| `--retry-github <tag>` | Retry GitHub release for an existing **remote** tag                    |
-| `--retry-docker <tag>` | Retry Docker publication for an existing **remote** Git tag            |
-| `--dry-run`            | Print planned version + changelog markdown; no file/Git/remote changes |
-| `--no-push`            | Keep commit and tag local (`git.push = false`)                         |
-| `--no-docker`          | Disable configured Docker tagging for this invocation                  |
-| `--yes`, `-y`          | Skip interactive confirmation                                          |
-| `--help`, `-h`         | Help text                                                              |
+| Option                 | Meaning                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `--cwd <path>`         | Repository directory (default: process cwd). Supports `--cwd=path`.                 |
+| `--config <path>`      | Explicit C12 config file                                                            |
+| `--preid <id>`         | Prerelease id: `^[0-9A-Za-z-]+$` only                                               |
+| `--retry-gitlab <tag>` | Retry GitLab release for an existing **remote** tag                                 |
+| `--retry-github <tag>` | Retry GitHub release for an existing **remote** tag                                 |
+| `--retry-docker <tag>` | Retry Docker publication for an existing **remote** Git tag (all configured images) |
+| `--dry-run`            | Print planned version + changelog markdown; no file/Git/remote changes              |
+| `--no-push`            | Keep commit and tag local (`git.push = false`)                                      |
+| `--no-docker`          | Disable configured Docker tagging for this invocation                               |
+| `--yes`, `-y`          | Skip interactive confirmation                                                       |
+| `--help`, `-h`         | Help text                                                                           |
 
 Conflict rules (parse errors):
 
