@@ -5,7 +5,7 @@ export default defineConfig({
     '*': 'vp check --fix',
   },
   test: {
-    include: ['tests/**'],
+    include: ['tests/**/*.test.ts'],
     passWithNoTests: true,
     testTimeout: 15_000,
   },

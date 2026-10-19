@@ -1,0 +1,92 @@
+[
+  {
+    "name": "no-tags",
+    "to": "HEAD",
+    "expected": [
+      {
+        "message": "chore: initial",
+        "shortHash": "f91e88f",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "\n\nA\tpackage.json"
+      }
+    ]
+  },
+  {
+    "name": "tagged",
+    "from": "v1.0.0",
+    "to": "HEAD",
+    "expected": [
+      {
+        "message": "feat: new feature",
+        "shortHash": "3b455ad",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "A multiline body\n\nCo-authored-by: Other <other@example.com>\n\n\nA\tfeature.txt"
+      }
+    ]
+  },
+  {
+    "name": "diverged",
+    "from": "main",
+    "to": "side",
+    "expected": [
+      {
+        "message": "feat: new feature",
+        "shortHash": "3b455ad",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "A multiline body\n\nCo-authored-by: Other <other@example.com>\n\n\nA\tfeature.txt\n"
+      },
+      {
+        "message": "fix: side",
+        "shortHash": "03af5bb",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "\n\nA\tside.txt"
+      }
+    ]
+  },
+  {
+    "name": "merged",
+    "from": "v1.0.0",
+    "to": "HEAD",
+    "expected": [
+      {
+        "message": "chore: merge side",
+        "shortHash": "5531d3f",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "\n"
+      },
+      {
+        "message": "feat: new feature",
+        "shortHash": "3b455ad",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "A multiline body\n\nCo-authored-by: Other <other@example.com>\n\n\nA\tfeature.txt\n"
+      },
+      {
+        "message": "fix: side",
+        "shortHash": "03af5bb",
+        "author": {
+          "name": "test author",
+          "email": "test@example.com"
+        },
+        "body": "\n\nA\tside.txt"
+      }
+    ]
+  }
+]

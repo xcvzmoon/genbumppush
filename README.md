@@ -19,11 +19,21 @@ npm install --save-dev genbumppush
 
 The package exports `defineConfig`, `loadReleaseConfig`, `runRelease`, and release types. The `genbumppush` binary is also available directly.
 
+Changelogs are generated internally, with formatting compatible with `changelogen@0.6.2`: grouped sections, commit and issue links, breaking changes, and contributors. Existing `changelog` configuration files and the `package.json` changelog key remain supported. Contributor usernames are resolved through `ungh.cc`; when lookup fails, contributor entries fall back to names and eligible emails. The legacy `CHANGELOGEN_TOKENS_GITHUB` credential alias remains supported.
+
 ## Release lifecycle
 
 The command loads C12 configuration, validates the Git worktree, detects the release type, and previews or confirms the release. It then calculates the version, checks local/remote tag collisions, runs `before` hooks, validates every version file, writes versions and the changelog, commits, tags, atomically pushes, and runs `after` hooks.
 
 Version-file and commit-preparation failures restore files and the index. A failed tag or network push leaves the release commit locally for inspection and retry. If no releasable commit exists, it exits successfully without mutation.
+
+## Releasing this package
+
+From a clean `main` checkout with its upstream configured, run `vp run release`. This checks formatting, lint, types, and tests, builds the local CLI, then runs it with `--yes` to generate the changelog, bump the version, commit, tag, and push without a confirmation prompt.
+
+Use `vp run release --dry-run` to preview the release, or `vp run release patch` to force a patch bump. A tag push triggers npm publication through `publish.yml` and draft GitHub release creation through `release.yml`. Provider release creation stays disabled locally by default, so the workflow creates the GitHub draft once.
+
+CI also runs `npm pack --dry-run` after building to verify package contents without publishing. Actual npm publication uses the existing trusted publisher configured for `publish.yml`.
 
 ## CLI
 
@@ -353,6 +363,8 @@ export default defineConfig({
   },
 });
 ```
+
+GitHub releases are created as drafts for manual review and publication. Retries also keep the release in draft status.
 
 If GitHub release creation fails after the Git push succeeds, fix credentials and run `genbumppush --retry-github <tag>`.
 

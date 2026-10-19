@@ -1,5 +1,5 @@
-import { resolveRepoConfig } from 'changelogen';
 import { getGitHubCliToken } from './auth-cli.ts';
+import { resolveRepoConfig } from './changelog/repository.ts';
 import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 
@@ -136,7 +136,7 @@ function parseReleaseId(body: unknown): number | undefined {
 }
 
 /**
- * Create or update a GitHub (or GHES) release for an existing tag.
+ * Create or update a draft GitHub (or GHES) release for an existing tag.
  * Uses the exact tag string so custom genbumppush tag templates stay valid.
  */
 export async function createGitHubRelease(options: GitHubReleaseOptions): Promise<void> {
@@ -159,6 +159,7 @@ export async function createGitHubRelease(options: GitHubReleaseOptions): Promis
     tag_name: options.tag,
     name: options.name,
     body: options.description,
+    draft: true,
   });
 
   const response =

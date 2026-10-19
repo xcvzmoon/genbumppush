@@ -1,0 +1,278 @@
+[
+  {
+    "name": "defaults",
+    "files": {},
+    "expected": {
+      "types": {
+        "feat": {
+          "title": "🚀 Enhancements",
+          "semver": "minor"
+        },
+        "perf": {
+          "title": "🔥 Performance",
+          "semver": "patch"
+        },
+        "fix": {
+          "title": "🩹 Fixes",
+          "semver": "patch"
+        },
+        "refactor": {
+          "title": "💅 Refactors",
+          "semver": "patch"
+        },
+        "docs": {
+          "title": "📖 Documentation",
+          "semver": "patch"
+        },
+        "build": {
+          "title": "📦 Build",
+          "semver": "patch"
+        },
+        "types": {
+          "title": "🌊 Types",
+          "semver": "patch"
+        },
+        "chore": {
+          "title": "🏡 Chore"
+        },
+        "examples": {
+          "title": "🏀 Examples"
+        },
+        "test": {
+          "title": "✅ Tests"
+        },
+        "style": {
+          "title": "🎨 Styles"
+        },
+        "ci": {
+          "title": "🤖 CI"
+        }
+      },
+      "cwd": "/fixture",
+      "from": "v1.0.0",
+      "to": "main",
+      "output": "/fixture/CHANGELOG.md",
+      "scopeMap": {},
+      "templates": {
+        "commitMessage": "chore(release): v{{newVersion}}",
+        "tagMessage": "v{{newVersion}}",
+        "tagBody": "v{{newVersion}}"
+      },
+      "excludeAuthors": [],
+      "noAuthors": false,
+      "repo": {
+        "provider": "github",
+        "repo": "acme/project",
+        "domain": "github.com"
+      }
+    }
+  },
+  {
+    "name": "package-key",
+    "files": {
+      "package.json": "{\"name\":\"fixture\",\"changelog\":{\"scopeMap\":{\"api\":\"http\"},\"types\":{\"feat\":{\"title\":\"Features\"}},\"noAuthors\":true}}"
+    },
+    "expected": {
+      "types": {
+        "feat": {
+          "title": "Features",
+          "semver": "minor"
+        },
+        "perf": {
+          "title": "🔥 Performance",
+          "semver": "patch"
+        },
+        "fix": {
+          "title": "🩹 Fixes",
+          "semver": "patch"
+        },
+        "refactor": {
+          "title": "💅 Refactors",
+          "semver": "patch"
+        },
+        "docs": {
+          "title": "📖 Documentation",
+          "semver": "patch"
+        },
+        "build": {
+          "title": "📦 Build",
+          "semver": "patch"
+        },
+        "types": {
+          "title": "🌊 Types",
+          "semver": "patch"
+        },
+        "chore": {
+          "title": "🏡 Chore"
+        },
+        "examples": {
+          "title": "🏀 Examples"
+        },
+        "test": {
+          "title": "✅ Tests"
+        },
+        "style": {
+          "title": "🎨 Styles"
+        },
+        "ci": {
+          "title": "🤖 CI"
+        }
+      },
+      "cwd": "/fixture",
+      "from": "v1.0.0",
+      "to": "main",
+      "output": "/fixture/CHANGELOG.md",
+      "scopeMap": {
+        "api": "http"
+      },
+      "templates": {
+        "commitMessage": "chore(release): v{{newVersion}}",
+        "tagMessage": "v{{newVersion}}",
+        "tagBody": "v{{newVersion}}"
+      },
+      "excludeAuthors": [],
+      "noAuthors": true
+    }
+  },
+  {
+    "name": "file-and-rc",
+    "files": {
+      "package.json": "{\"name\":\"fixture\",\"changelog\":{\"noAuthors\":true,\"scopeMap\":{\"api\":\"package\"}}}",
+      ".changelogrc": "{\"scopeMap\":{\"api\":\"rc\"},\"excludeAuthors\":[\"robot\"]}",
+      "changelog.config.mjs": "export default { scopeMap: { api: 'file' }, types: { fix: false, custom: { title: 'Custom', semver: 'major' } }, templates: { tagBody: 'release-{{newVersion}}' } };"
+    },
+    "expected": {
+      "types": {
+        "feat": {
+          "title": "🚀 Enhancements",
+          "semver": "minor"
+        },
+        "perf": {
+          "title": "🔥 Performance",
+          "semver": "patch"
+        },
+        "fix": false,
+        "refactor": {
+          "title": "💅 Refactors",
+          "semver": "patch"
+        },
+        "docs": {
+          "title": "📖 Documentation",
+          "semver": "patch"
+        },
+        "build": {
+          "title": "📦 Build",
+          "semver": "patch"
+        },
+        "types": {
+          "title": "🌊 Types",
+          "semver": "patch"
+        },
+        "chore": {
+          "title": "🏡 Chore"
+        },
+        "examples": {
+          "title": "🏀 Examples"
+        },
+        "test": {
+          "title": "✅ Tests"
+        },
+        "style": {
+          "title": "🎨 Styles"
+        },
+        "ci": {
+          "title": "🤖 CI"
+        },
+        "custom": {
+          "title": "Custom",
+          "semver": "major"
+        }
+      },
+      "cwd": "/fixture",
+      "from": "v1.0.0",
+      "to": "main",
+      "output": "/fixture/CHANGELOG.md",
+      "scopeMap": {
+        "api": "file"
+      },
+      "templates": {
+        "commitMessage": "chore(release): v{{newVersion}}",
+        "tagMessage": "v{{newVersion}}",
+        "tagBody": "release-{{newVersion}}"
+      },
+      "excludeAuthors": [],
+      "noAuthors": true
+    }
+  },
+  {
+    "name": "repo-and-output",
+    "files": {
+      "changelog.config.mjs": "export default { from: 'base', to: 'target', repo: 'gitlab:group/project', output: true, hideAuthorEmail: true };"
+    },
+    "expected": {
+      "types": {
+        "feat": {
+          "title": "🚀 Enhancements",
+          "semver": "minor"
+        },
+        "perf": {
+          "title": "🔥 Performance",
+          "semver": "patch"
+        },
+        "fix": {
+          "title": "🩹 Fixes",
+          "semver": "patch"
+        },
+        "refactor": {
+          "title": "💅 Refactors",
+          "semver": "patch"
+        },
+        "docs": {
+          "title": "📖 Documentation",
+          "semver": "patch"
+        },
+        "build": {
+          "title": "📦 Build",
+          "semver": "patch"
+        },
+        "types": {
+          "title": "🌊 Types",
+          "semver": "patch"
+        },
+        "chore": {
+          "title": "🏡 Chore"
+        },
+        "examples": {
+          "title": "🏀 Examples"
+        },
+        "test": {
+          "title": "✅ Tests"
+        },
+        "style": {
+          "title": "🎨 Styles"
+        },
+        "ci": {
+          "title": "🤖 CI"
+        }
+      },
+      "cwd": "/fixture",
+      "from": "base",
+      "to": "target",
+      "output": "CHANGELOG.md",
+      "scopeMap": {},
+      "templates": {
+        "commitMessage": "chore(release): v{{newVersion}}",
+        "tagMessage": "v{{newVersion}}",
+        "tagBody": "v{{newVersion}}"
+      },
+      "excludeAuthors": [],
+      "noAuthors": false,
+      "repo": {
+        "provider": "gitlab",
+        "repo": "group/project",
+        "domain": "gitlab.com"
+      },
+      "hideAuthorEmail": true
+    }
+  }
+]

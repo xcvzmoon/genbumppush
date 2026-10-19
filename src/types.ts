@@ -1,5 +1,3 @@
-import type { SemverBumpType } from 'changelogen';
-
 /**
  * Every release type genbumppush can apply.
  *
@@ -22,7 +20,7 @@ export const RELEASE_TYPES = [
   'patch',
   'prepatch',
   'prerelease',
-] as const satisfies readonly SemverBumpType[];
+] as const;
 
 /** One of {@link RELEASE_TYPES}. */
 export type ReleaseType = (typeof RELEASE_TYPES)[number];
@@ -220,7 +218,7 @@ export type GitLabOptions = {
  */
 export type GitHubOptions = {
   /**
-   * Create a GitHub release for the new tag.
+   * Create a draft GitHub release for the new tag.
    * Requires {@link GitOptions.push} to stay enabled and a token in the environment.
    * @defaultValue false
    */

@@ -15,7 +15,8 @@
     "url": "git+https://github.com/xcvzmoon/genbumppush.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "exports": {
     ".": {
@@ -29,7 +30,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "genbumppush": "./dist/bin.mjs"
+    "genbumppush": "dist/bin.mjs"
   },
   "publishConfig": {
     "access": "public"
@@ -50,12 +51,12 @@
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
+    "release": "vp check && vp test && vp run build && node dist/bin.mjs --yes",
     "prepublishOnly": "vp run build",
     "prepare": "vp config"
   },
   "dependencies": {
-    "c12": "4.0.0-rc.1",
-    "changelogen": "^0.6.2"
+    "c12": "4.0.0-rc.1"
   },
   "devDependencies": {
     "@types/node": "26.5.0",
