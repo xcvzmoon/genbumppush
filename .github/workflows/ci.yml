@@ -34,3 +34,7 @@ jobs:
 
       - name: Build package
         run: vp pack
+
+      - name: Verify npm package
+        working-directory: ${{ runner.temp }}
+        run: npm pack "$GITHUB_WORKSPACE" --dry-run

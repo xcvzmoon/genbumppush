@@ -30,7 +30,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "genbumppush": "./dist/bin.mjs"
+    "genbumppush": "dist/bin.mjs"
   },
   "publishConfig": {
     "access": "public"
@@ -51,6 +51,7 @@
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
+    "release": "vp check && vp test && vp run build && node dist/bin.mjs --yes",
     "prepublishOnly": "vp run build",
     "prepare": "vp config"
   },
