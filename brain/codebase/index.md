@@ -1,3 +1,0 @@
-# Codebase
-
-- [[codebase/self-release]]
