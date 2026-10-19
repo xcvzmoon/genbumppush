@@ -1,5 +1,5 @@
-import { resolveRepoConfig } from 'changelogen';
 import { getGitHubCliToken } from './auth-cli.ts';
+import { resolveRepoConfig } from './changelog/repository.ts';
 import { ENV, readEnv, readEnvFirst } from './env.ts';
 import { ReleaseError } from './error.ts';
 

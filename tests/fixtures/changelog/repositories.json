@@ -1,0 +1,97 @@
+[
+  {
+    "url": "",
+    "expected": {}
+  },
+  {
+    "url": "acme/project",
+    "expected": {
+      "provider": "github",
+      "repo": "acme/project",
+      "domain": "github.com"
+    }
+  },
+  {
+    "url": "github:acme/project",
+    "expected": {
+      "provider": "github",
+      "repo": "acme/project",
+      "domain": "github.com"
+    }
+  },
+  {
+    "url": "gitlab:group/project",
+    "expected": {
+      "provider": "gitlab",
+      "repo": "group/project",
+      "domain": "gitlab.com"
+    }
+  },
+  {
+    "url": "bitbucket:team/project",
+    "expected": {
+      "provider": "bitbucket",
+      "repo": "team/project",
+      "domain": "bitbucket.org"
+    }
+  },
+  {
+    "url": "git@github.com:acme/project.git",
+    "expected": {
+      "provider": "github",
+      "repo": "acme/project",
+      "domain": "github.com"
+    }
+  },
+  {
+    "url": "https://github.com/acme/project.git",
+    "expected": {
+      "provider": "github",
+      "repo": "acme/project",
+      "domain": "github.com"
+    }
+  },
+  {
+    "url": "git+https://github.com/acme/project.git",
+    "expected": {
+      "provider": "github",
+      "repo": "acme/project",
+      "domain": "github.com"
+    }
+  },
+  {
+    "url": "https://gitlab.com/group/sub/project.git",
+    "expected": {
+      "provider": "gitlab",
+      "repo": "group/sub/project",
+      "domain": "gitlab.com"
+    }
+  },
+  {
+    "url": "ssh://git@gitlab.com/group/project.git",
+    "expected": {
+      "provider": "gitlab",
+      "repo": "group/project",
+      "domain": "gitlab.com"
+    }
+  },
+  {
+    "url": "https://git.example.com/group/project.git",
+    "expected": {
+      "repo": "group/project",
+      "domain": "git.example.com"
+    }
+  },
+  {
+    "url": "garbage",
+    "expected": {}
+  },
+  {
+    "url": "git@git.example.com:group/project.git",
+    "expected": {
+      "provider": "git.example.com",
+      "repo": "group/project",
+      "domain": "git.example.com"
+    }
+  }
+]

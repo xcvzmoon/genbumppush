@@ -19,6 +19,8 @@ npm install --save-dev genbumppush
 
 The package exports `defineConfig`, `loadReleaseConfig`, `runRelease`, and release types. The `genbumppush` binary is also available directly.
 
+Changelogs are generated internally, with formatting compatible with `changelogen@0.6.2`: grouped sections, commit and issue links, breaking changes, and contributors. Existing `changelog` configuration files and the `package.json` changelog key remain supported. Contributor usernames are resolved through `ungh.cc`; when lookup fails, contributor entries fall back to names and eligible emails. The legacy `CHANGELOGEN_TOKENS_GITHUB` credential alias remains supported.
+
 ## Release lifecycle
 
 The command loads C12 configuration, validates the Git worktree, detects the release type, and previews or confirms the release. It then calculates the version, checks local/remote tag collisions, runs `before` hooks, validates every version file, writes versions and the changelog, commits, tags, atomically pushes, and runs `after` hooks.

@@ -1,4 +1,4 @@
-import type { GitCommit, ResolvedChangelogConfig } from 'changelogen';
+import type { GitCommit, ResolvedChangelogConfig } from './changelog/types.ts';
 import type {
   CliOptions,
   GenBumpPushConfig,
@@ -6,17 +6,15 @@ import type {
   GitLabOptions,
   ReleaseResult,
 } from './types.ts';
-import {
-  determineSemverChange,
-  generateMarkDown,
-  getGitDiff,
-  loadChangelogConfig,
-  parseCommits,
-} from 'changelogen';
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
+import { determineSemverChange } from './changelog/bump.ts';
+import { loadChangelogConfig } from './changelog/config.ts';
+import { getGitDiff } from './changelog/history.ts';
+import { generateMarkDown } from './changelog/markdown.ts';
+import { parseCommits } from './changelog/parse.ts';
 import { loadReleaseConfig } from './config.ts';
 import {
   applyDockerResultFields,
@@ -230,7 +228,7 @@ function filter(
 
 async function collect(cwd: string, config: GenBumpPushConfig) {
   const changelog = await loadChangelogConfig(cwd);
-  const commits = parseCommits(await getGitDiff(changelog.from, changelog.to, cwd), changelog);
+  const commits = parseCommits(getGitDiff(changelog.from, changelog.to, cwd), changelog);
   for (const commit of commits) {
     commit.type = commit.type.toLowerCase();
   }

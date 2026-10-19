@@ -1,0 +1,18 @@
+[
+  {
+    "input": ":art: :zap: :fire: :bug: :ambulance: :sparkles: :memo: :rocket: :lipstick: :tada: :white_check_mark: :lock: :closed_lock_with_key: :bookmark: :rotating_light: :construction: :green_heart: :arrow_down: :arrow_up: :pushpin: :construction_worker: :chart_with_upwards_trend: :recycle: :heavy_plus_sign: :heavy_minus_sign: :wrench: :hammer: :globe_with_meridians: :pencil2: :pencil: :poop: :rewind: :twisted_rightwards_arrows: :package: :alien: :truck: :page_facing_up: :boom: :bento: :wheelchair: :bulb: :beers: :speech_balloon: :card_file_box: :loud_sound: :mute: :busts_in_silhouette: :children_crossing: :building_construction: :iphone: :clown_face: :egg: :see_no_evil: :camera_flash: :alembic: :mag: :label: :seedling: :triangular_flag_on_post: :goal_net: :dizzy: :wastebasket: :passport_control: :adhesive_bandage: :monocle_face: :coffin: :test_tube: :necktie: :stethoscope: :bricks: :technologist: :money_with_wings: :thread: :safety_vest:",
+    "expected": "🎨  ⚡️  🔥  🐛  🚑️  ✨  📝  🚀  💄  🎉  ✅  🔒️  🔐  🔖  🚨  🚧  💚  ⬇️  ⬆️  📌  👷  📈  ♻️  ➕  ➖  🔧  🔨  🌐  ✏️  ✏️  💩  ⏪️  🔀  📦️  👽️  🚚  📄  💥  🍱  ♿️  💡  🍻  💬  🗃️  🔊  🔇  👥  🚸  🏗️  📱  🤡  🥚  🙈  📸  ⚗️  🔍️  🏷️  🌱  🚩  🥅  💫  🗑️  🛂  🩹  🧐  ⚰️  🧪  👔  🩺  🧱  🧑‍💻  💸  🧵  🦺 "
+  },
+  {
+    "input": ":ART::ZAP::FIRE::BUG::AMBULANCE::SPARKLES::MEMO::ROCKET::LIPSTICK::TADA::WHITE_CHECK_MARK::LOCK::CLOSED_LOCK_WITH_KEY::BOOKMARK::ROTATING_LIGHT::CONSTRUCTION::GREEN_HEART::ARROW_DOWN::ARROW_UP::PUSHPIN::CONSTRUCTION_WORKER::CHART_WITH_UPWARDS_TREND::RECYCLE::HEAVY_PLUS_SIGN::HEAVY_MINUS_SIGN::WRENCH::HAMMER::GLOBE_WITH_MERIDIANS::PENCIL2::PENCIL::POOP::REWIND::TWISTED_RIGHTWARDS_ARROWS::PACKAGE::ALIEN::TRUCK::PAGE_FACING_UP::BOOM::BENTO::WHEELCHAIR::BULB::BEERS::SPEECH_BALLOON::CARD_FILE_BOX::LOUD_SOUND::MUTE::BUSTS_IN_SILHOUETTE::CHILDREN_CROSSING::BUILDING_CONSTRUCTION::IPHONE::CLOWN_FACE::EGG::SEE_NO_EVIL::CAMERA_FLASH::ALEMBIC::MAG::LABEL::SEEDLING::TRIANGULAR_FLAG_ON_POST::GOAL_NET::DIZZY::WASTEBASKET::PASSPORT_CONTROL::ADHESIVE_BANDAGE::MONOCLE_FACE::COFFIN::TEST_TUBE::NECKTIE::STETHOSCOPE::BRICKS::TECHNOLOGIST::MONEY_WITH_WINGS::THREAD::SAFETY_VEST:",
+    "expected": "🎨 ⚡️ 🔥 🐛 🚑️ ✨ 📝 🚀 💄 🎉 ✅ 🔒️ 🔐 🔖 🚨 🚧 💚 ⬇️ ⬆️ 📌 👷 📈 ♻️ ➕ ➖ 🔧 🔨 🌐 ✏️ ✏️ 💩 ⏪️ 🔀 📦️ 👽️ 🚚 📄 💥 🍱 ♿️ 💡 🍻 💬 🗃️ 🔊 🔇 👥 🚸 🏗️ 📱 🤡 🥚 🙈 📸 ⚗️ 🔍️ 🏷️ 🌱 🚩 🥅 💫 🗑️ 🛂 🩹 🧐 ⚰️ 🧪 👔 🩺 🧱 🧑‍💻 💸 🧵 🦺 "
+  },
+  {
+    "input": ":unknown: :sparkles:  :bug:\n:package:",
+    "expected": ":unknown: ✨   🐛 \n📦️ "
+  },
+  {
+    "input": ":art:word:art:",
+    "expected": "🎨 word🎨 "
+  }
+]

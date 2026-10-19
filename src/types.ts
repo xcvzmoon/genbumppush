@@ -1,5 +1,3 @@
-import type { SemverBumpType } from 'changelogen';
-
 /**
  * Every release type genbumppush can apply.
  *
@@ -22,7 +20,7 @@ export const RELEASE_TYPES = [
   'patch',
   'prepatch',
   'prerelease',
-] as const satisfies readonly SemverBumpType[];
+] as const;
 
 /** One of {@link RELEASE_TYPES}. */
 export type ReleaseType = (typeof RELEASE_TYPES)[number];
