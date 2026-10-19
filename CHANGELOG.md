@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.0.9
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.8...v0.0.9)
+
+### 🩹 Fixes
+
+- **release:** Create GitHub releases as drafts ([0d2dc52](https://github.com/xcvzmoon/genbumppush/commit/0d2dc52))
+
+### 💅 Refactors
+
+- **changelog:** Replace changelogen with internal generation ([c8431dc](https://github.com/xcvzmoon/genbumppush/commit/c8431dc))
+
+### 📖 Documentation
+
+- **changelog:** Record implementation plan and verification ([9b42328](https://github.com/xcvzmoon/genbumppush/commit/9b42328))
+- **release:** Record self-release verification and toolchain behavior ([418fadc](https://github.com/xcvzmoon/genbumppush/commit/418fadc))
+
+### 🏡 Chore
+
+- **release:** Use the local CLI for noninteractive releases ([35ced55](https://github.com/xcvzmoon/genbumppush/commit/35ced55))
+- Remove brain directory ([28c96d5](https://github.com/xcvzmoon/genbumppush/commit/28c96d5))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.8
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.7...v0.0.8)
