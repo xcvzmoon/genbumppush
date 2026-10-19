@@ -220,7 +220,7 @@ export type GitLabOptions = {
  */
 export type GitHubOptions = {
   /**
-   * Create a GitHub release for the new tag.
+   * Create a draft GitHub release for the new tag.
    * Requires {@link GitOptions.push} to stay enabled and a token in the environment.
    * @defaultValue false
    */

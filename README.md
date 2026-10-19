@@ -354,6 +354,8 @@ export default defineConfig({
 });
 ```
 
+GitHub releases are created as drafts for manual review and publication. Retries also keep the release in draft status.
+
 If GitHub release creation fails after the Git push succeeds, fix credentials and run `genbumppush --retry-github <tag>`.
 
 GitLab release creation remains supported the same way. Configure a project path and provide an API token through the environment:

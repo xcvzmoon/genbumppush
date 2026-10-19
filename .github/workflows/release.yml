@@ -49,7 +49,7 @@ jobs:
           fi
 
           if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes"
+            gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes "$notes"
           fi

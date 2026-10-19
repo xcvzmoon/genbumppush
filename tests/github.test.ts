@@ -46,6 +46,7 @@ describe('GitHub provider', () => {
       tag_name: 'release-1.2.4',
       name: 'Release 1.2.4',
       body: 'Notes',
+      draft: true,
     });
   });
 
@@ -72,6 +73,7 @@ describe('GitHub provider', () => {
     expect(requests).toHaveLength(2);
     expect(requests[1]?.url).toBe('https://api.github.com/repos/group/project/releases/42');
     expect(requests[1]?.method).toBe('PATCH');
+    expect(await requests[1]?.json()).toMatchObject({ draft: true });
   });
 
   test('uses GHES api base for custom hosts', async () => {
