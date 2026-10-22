@@ -21,6 +21,20 @@ function recordingRunner(stdout: string | undefined): {
 }
 
 describe('auth-cli', () => {
+  test.each(['Token:', 'Token found in operating system keyring:'])(
+    'parses complete %s lines without accepting diagnostic prose',
+    (label) => {
+      expect(parseGitLabAuthToken(`  ✓ ${label} synthetic-token\r\n`)).toBe('synthetic-token');
+      expect(parseGitLabAuthToken(`  - ${label} glpat_****\n`)).toBeUndefined();
+      expect(parseGitLabAuthToken(`  - ${label}\nnext-line`)).toBeUndefined();
+      expect(parseGitLabAuthToken(`Warning: ${label} diagnostic`)).toBeUndefined();
+      expect(parseGitLabAuthToken(`  - ${label} token extra-words`)).toBeUndefined();
+      expect(parseGitLabAuthToken(`  - ${label} ****\n  ✓ ${label} usable-token`)).toBe(
+        'usable-token',
+      );
+    },
+  );
+
   test('parses GitLab status tokens and rejects masked values', () => {
     expect(
       parseGitLabAuthToken(

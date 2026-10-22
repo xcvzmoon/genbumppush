@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, test } from 'vite-plus/test';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
+import { getGitLabCliToken } from '../src/auth-cli.ts';
 import {
   createGitLabRelease,
   releaseNotes,
@@ -19,6 +24,50 @@ afterEach(() => {
 });
 
 describe('GitLab provider', () => {
+  test('resolves stderr-only keyring credentials through a real subprocess', async () => {
+    const bin = await mkdtemp(join(tmpdir(), 'genbumppush-glab-'));
+    const glabPath = join(bin, 'glab');
+    const callsPath = `${glabPath}.calls`;
+    try {
+      await writeFile(
+        glabPath,
+        '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.calls"\nprintf "%s\\n" "  ✓ Token found in operating system keyring: synthetic-token" >&2\n',
+        { mode: 0o755 },
+      );
+      vi.stubEnv('PATH', `${bin}:${process.env.PATH ?? ''}`);
+      vi.stubEnv('GENBUMPPUSH_GITLAB_TOKEN', undefined);
+      vi.stubEnv('GITLAB_TOKEN', undefined);
+      vi.stubEnv('CUSTOM_GITLAB_TOKEN', undefined);
+
+      const host = 'https://gitlab.example.com/';
+      expect(getGitLabCliToken(host)).toBe('synthetic-token');
+      expect(resolveGitLabToken(undefined, host)).toBe('synthetic-token');
+      expect(await readFile(callsPath, 'utf8')).toBe(
+        'auth\nstatus\n--show-token\n--hostname\ngitlab.example.com\n',
+      );
+      await rm(callsPath);
+
+      expect(resolveGitLabToken('CUSTOM_GITLAB_TOKEN', host)).toBeUndefined();
+      vi.stubEnv('GITLAB_TOKEN', 'fallback-token');
+      expect(resolveGitLabToken(undefined, host)).toBe('fallback-token');
+      vi.stubEnv('GENBUMPPUSH_GITLAB_TOKEN', 'preferred-token');
+      expect(resolveGitLabToken(undefined, host)).toBe('preferred-token');
+      expect(resolveGitLabToken('CUSTOM_GITLAB_TOKEN', host)).toBeUndefined();
+      expect(existsSync(callsPath)).toBe(false);
+
+      vi.stubEnv('GENBUMPPUSH_GITLAB_TOKEN', undefined);
+      vi.stubEnv('GITLAB_TOKEN', undefined);
+      await writeFile(
+        glabPath,
+        '#!/bin/sh\nprintf "%s\\n" "  - Token: synthetic-token" >&2\nexit 1\n',
+      );
+      expect(resolveGitLabToken(undefined, host)).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(bin, { recursive: true, force: true });
+    }
+  });
+
   test('extracts the matching changelog section', () => {
     expect(
       releaseNotes('# Changelog\n\n## v1.2.4\n\n- Added feature\n\n## v1.2.3\n- Old', 'v1.2.4'),
