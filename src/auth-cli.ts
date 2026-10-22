@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 /**
- * Spawns a host CLI and returns stdout, or `undefined` when the binary is
+ * Spawns a host CLI and returns captured output, or `undefined` when the binary is
  * missing, exits non-zero, or prints nothing. Never log the return value —
  * it may be a live credential.
  */
@@ -9,16 +9,20 @@ export type CliRunner = (bin: string, args: readonly string[]) => string | undef
 
 const CLI_TIMEOUT_MS = 5_000;
 
-function spawnCapture(bin: string, args: readonly string[]): string | undefined {
+function spawnCapture(
+  bin: string,
+  args: readonly string[],
+  includeStderr = false,
+): string | undefined {
   const result = spawnSync(bin, [...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: CLI_TIMEOUT_MS,
   });
   if (result.error || result.status !== 0) return undefined;
-  const stdout = result.stdout;
-  if (typeof stdout !== 'string' || stdout.trim().length === 0) return undefined;
-  return stdout;
+  const output = includeStderr ? `${result.stdout}\n${result.stderr}` : result.stdout;
+  if (output.trim().length === 0) return undefined;
+  return output;
 }
 
 /** First non-empty stdout line — what `gh auth token` prints. */
@@ -33,8 +37,8 @@ export const runCli: CliRunner = (bin, args) => {
   );
 };
 
-/** Full stdout — required for multi-line `glab auth status` output. */
-export const runCliFullOutput: CliRunner = spawnCapture;
+/** Full stdout and stderr — `glab auth status` may write status to either stream. */
+export const runCliFullOutput: CliRunner = (bin, args) => spawnCapture(bin, args, true);
 
 /** Strip protocol/path so CLIs receive a bare hostname. */
 export function hostnameFromHost(host: string): string {
@@ -75,10 +79,12 @@ export function getGitHubCliToken(host?: string, run: CliRunner = runCli): strin
 
 /**
  * Extract a token from `glab auth status --show-token` human-readable output.
- * Prefers the first non-masked `Token:` value.
+ * Prefers the first non-masked token with a recognized legacy or keyring label.
  */
 export function parseGitLabAuthToken(status: string): string | undefined {
-  for (const match of status.matchAll(/Token:\s*(\S+)/gi)) {
+  for (const match of status.matchAll(
+    /^[\t ]*(?:[-✓][\t ]+)?Token(?: found in operating system keyring)?:[\t ]*(\S+)[\t ]*\r?$/gim,
+  )) {
     const token = match[1];
     if (isUsableToken(token)) return token;
   }
