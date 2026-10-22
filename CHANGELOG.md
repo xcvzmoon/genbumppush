@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.0.10
+
+[compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.9...v0.0.10)
+
+### 🩹 Fixes
+
+- **auth:** Support glab keyring status on stderr ([be5769e](https://github.com/xcvzmoon/genbumppush/commit/be5769e))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.9
 
 [compare changes](https://github.com/xcvzmoon/genbumppush/compare/v0.0.8...v0.0.9)
