@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vite-plus/test';
@@ -79,6 +79,45 @@ describe('runRelease', () => {
     expect(result.dockerImage).toBe('ghcr.io/acme/app');
     expect(result.dockerTags).toEqual(['ghcr.io/acme/app:1.2.4', 'ghcr.io/acme/app:v1.2.4']);
     expect(result.dockerImagePublished).toBeUndefined();
+  });
+
+  test('Docker retry dry run plans tags without executing Docker', async () => {
+    const cwd = await repository();
+    const remote = await mkdtemp(join(tmpdir(), 'genbumppush-remote-'));
+    git(remote, 'init', '--bare');
+    git(cwd, 'remote', 'set-url', 'origin', remote);
+    git(cwd, 'push', 'origin', 'refs/tags/v1.2.3');
+    await writeFile(
+      join(cwd, 'genbumppush.config.mjs'),
+      "export default { docker: { enabled: true, source: 'build:{{version}}', image: 'acme/app', tags: ['{{version}}', '{{tag}}'] } };\n",
+    );
+    const before = git(cwd, 'rev-parse', 'HEAD');
+    const bin = await mkdtemp(join(tmpdir(), 'genbumppush-docker-bin-'));
+    const log = join(bin, 'calls');
+    await writeFile(join(bin, 'docker'), `#!/bin/sh\nprintf 'called' >> '${log}'\nexit 1\n`);
+    await chmod(join(bin, 'docker'), 0o755);
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${bin}:${originalPath ?? ''}`;
+    try {
+      const result = await runRelease({
+        cwd,
+        dockerRetryTag: 'v1.2.3',
+        dryRun: true,
+        yes: true,
+        help: false,
+      });
+      expect(result).toMatchObject({
+        dryRun: true,
+        dockerImage: 'acme/app',
+        dockerTags: ['acme/app:1.2.3', 'acme/app:v1.2.3'],
+      });
+      expect(result.dockerImagePublished).toBeUndefined();
+      await expect(access(log)).rejects.toThrow();
+      expect(git(cwd, 'rev-parse', 'HEAD')).toBe(before);
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+    }
   });
 
   test('dry run lists every planned multi-image Docker reference', async () => {

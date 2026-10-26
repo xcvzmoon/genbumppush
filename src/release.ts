@@ -387,6 +387,26 @@ export async function runRelease(options: CliOptions): Promise<ReleaseResult> {
         'Enable docker before retrying Docker publication.',
       );
     }
+    if (options.dryRun) {
+      for (const plan of plans) {
+        console.info(
+          `Dry run: would publish Docker image ${plan.image} from ${plan.source} as ${plan.references.join(', ')}`,
+        );
+      }
+      const result: ReleaseResult = {
+        currentVersion,
+        tag: options.dockerRetryTag,
+        pushed: false,
+        dryRun: true,
+        commitCount: 0,
+        dockerImages: plans.map(({ image, references }) => ({ image, references })),
+      };
+      if (plans.length === 1 && plans[0] !== undefined) {
+        result.dockerImage = plans[0].image;
+        result.dockerTags = plans[0].references;
+      }
+      return result;
+    }
     const published = publishDockerImages(plans, preflightDockerPublications(plans));
     const result: ReleaseResult = {
       currentVersion,

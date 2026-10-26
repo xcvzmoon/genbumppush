@@ -49,7 +49,77 @@ describe('Docker publication', () => {
       image: 'ghcr.io/acme/app',
       references: ['ghcr.io/acme/app:1.2.4', 'ghcr.io/acme/app:v1.2.4', 'ghcr.io/acme/app:latest'],
       push: true,
+      allowMutableTags: true,
     });
+  });
+
+  test.each(['acme/my--app', 'acme/my__app', 'registry.example:5000/team/my--app'])(
+    'accepts valid repository %s',
+    (image) => {
+      expect(
+        planDockerPublication({ enabled: true, source: 'build:1', image }, '1.0.0', 'v1.0.0')
+          ?.image,
+      ).toBe(image);
+    },
+  );
+
+  test.each(['acme/my..app', 'acme/my___app', 'acme/-app', 'acme/app-', 'acme//app'])(
+    'rejects invalid repository %s',
+    (image) => {
+      expect(() =>
+        planDockerPublication({ enabled: true, source: 'build:1', image }, '1.0.0', 'v1.0.0'),
+      ).toThrow('Invalid Docker image repository');
+    },
+  );
+
+  test('updates opted-in latest while protecting version tags', () => {
+    const plan = planDockerPublication(
+      {
+        enabled: true,
+        source: 'build:latest',
+        image: 'acme/app',
+        tags: ['latest'],
+        allowMutableTags: true,
+      },
+      '1.0.0',
+      'v1.0.0',
+    );
+    if (plan === undefined) throw new Error('Missing plan');
+    const calls: string[][] = [];
+    const run: DockerRunner = (args) => {
+      calls.push([...args]);
+      return args.length === 3 && args[0] === 'image' ? imageInspect(imageId) : result(0, apiId);
+    };
+    const source = preflightDockerPublication(plan, run);
+    publishDockerImage(plan, source, run);
+    expect(calls).toContainEqual(['tag', imageId, 'acme/app:latest']);
+    const versionPlan = planDockerPublication(
+      { enabled: true, source: 'build:latest', image: 'acme/app', allowMutableTags: true },
+      '1.0.0',
+      'v1.0.0',
+    );
+    if (versionPlan === undefined) throw new Error('Missing plan');
+    expect(() => preflightDockerPublication(versionPlan, run)).toThrow('different local image');
+  });
+
+  test('publishes the preflight identity even if the source tag moves', () => {
+    const plan = planDockerPublication(
+      { enabled: true, source: 'build:latest', image: 'acme/app' },
+      '1.0.0',
+      'v1.0.0',
+    );
+    if (plan === undefined) throw new Error('Missing plan');
+    let currentSource = imageId;
+    let taggedId: string | undefined;
+    const run: DockerRunner = (args) => {
+      if (args[0] === 'image') return args.length === 3 ? imageInspect(currentSource) : result(1);
+      if (args[0] === 'tag') taggedId = args[1] === 'build:latest' ? currentSource : args[1];
+      return result(0);
+    };
+    const source = preflightDockerPublication(plan, run);
+    currentSource = apiId;
+    expect(publishDockerImage(plan, source, run).digest).toBe(imageId);
+    expect(taggedId).toBe(imageId);
   });
 
   test('rejects mutable, duplicate, and malformed destination tags', () => {
@@ -87,7 +157,7 @@ describe('Docker publication', () => {
     const published = publishDockerImage(plan, source, run);
 
     expect(published.digest).toBe(imageId);
-    expect(calls).toContainEqual(['tag', 'acme/build:1.0.0', 'acme/app:1.0.0']);
+    expect(calls).toContainEqual(['tag', imageId, 'acme/app:1.0.0']);
     expect(calls).toContainEqual(['push', 'acme/app:1.0.0']);
   });
 
@@ -227,9 +297,9 @@ describe('Docker multi-image publication', () => {
     expect(published).toHaveLength(2);
     expect(published[0]?.digest).toBe(apiId);
     expect(published[1]?.digest).toBe(webId);
-    expect(calls).toContainEqual(['tag', 'acme/api-build:1.2.4', 'ghcr.io/acme/api:1.2.4']);
+    expect(calls).toContainEqual(['tag', apiId, 'ghcr.io/acme/api:1.2.4']);
     expect(calls).toContainEqual(['push', 'ghcr.io/acme/api:1.2.4']);
-    expect(calls).toContainEqual(['tag', 'acme/web-build:1.2.4', 'ghcr.io/acme/web:1.2.4']);
+    expect(calls).toContainEqual(['tag', webId, 'ghcr.io/acme/web:1.2.4']);
     expect(calls).not.toContainEqual(['push', 'ghcr.io/acme/web:1.2.4']);
   });
 
