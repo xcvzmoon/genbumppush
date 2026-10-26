@@ -21,6 +21,7 @@ export type DockerPublicationPlan = {
   image: string;
   references: string[];
   push: boolean;
+  allowMutableTags?: boolean;
 };
 
 export type DockerPublicationResult = DockerPublicationPlan & { digest: string };
@@ -61,7 +62,7 @@ function validateRepository(image: string): void {
     );
   }
   const repositoryPattern =
-    /^[a-z0-9]+(?:(?:[._-]|\/)[a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:(?:[._-]|\/)[a-z0-9]+)*)?)?$/;
+    /^[a-z0-9]+(?:(?:[._]|__|-+|\/)[a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:(?:[._]|__|-+|\/)[a-z0-9]+)*)?)?$/;
   if (!repositoryPattern.test(image)) {
     throw new ReleaseError('DOCKER_CONFIG_INVALID', `Invalid Docker image repository: ${image}`);
   }
@@ -178,6 +179,7 @@ function planDockerImageEntry(
     image,
     references: tags.map((tag) => `${image}:${tag}`),
     push: entry.push !== false,
+    ...(entry.allowMutableTags === true ? { allowMutableTags: true } : {}),
   };
 }
 
@@ -287,7 +289,11 @@ export function preflightDockerPublication(
   const source = inspectSource(plan.source, run);
   for (const reference of plan.references) {
     const existingId = inspectLocalId(reference, run);
-    if (existingId !== undefined && existingId !== source.id) {
+    if (
+      existingId !== undefined &&
+      existingId !== source.id &&
+      !(plan.allowMutableTags === true && reference === `${plan.image}:latest`)
+    ) {
       throw new ReleaseError(
         'DOCKER_TAG_CONFLICT',
         `Docker tag ${reference} already points to a different local image.`,
@@ -323,7 +329,7 @@ export function publishDockerImage(
   for (const reference of plan.references) {
     const existingId = inspectLocalId(reference, run);
     if (existingId !== source.id) {
-      const tagged = run(['tag', plan.source, reference]);
+      const tagged = run(['tag', source.id, reference]);
       if (tagged.status !== 0) {
         throw new ReleaseError('DOCKER_TAG_FAILED', `Could not create Docker tag ${reference}.`);
       }
